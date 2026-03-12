@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcrypt";
 import { db } from "@workspace/db";
-import { usersTable, patientsTable } from "@workspace/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { usersTable, patientsTable, auditLogsTable, userRoleEnum } from "@workspace/db/schema";
+import { eq, sql, desc } from "drizzle-orm";
 import { requireAuth, requireRole, auditLog, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
+const VALID_ROLES = userRoleEnum.enumValues;
 
 router.get(
   "/users",
@@ -31,8 +32,8 @@ router.get(
         })
         .from(usersTable);
 
-      const result = role && typeof role === "string"
-        ? await query.where(eq(usersTable.role, role as any)).limit(limit).offset(offset)
+      const result = role && typeof role === "string" && VALID_ROLES.includes(role as typeof VALID_ROLES[number])
+        ? await query.where(eq(usersTable.role, role as typeof VALID_ROLES[number])).limit(limit).offset(offset)
         : await query.limit(limit).offset(offset);
 
       const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(usersTable);
@@ -55,6 +56,11 @@ router.post(
 
       if (!email || !password || !firstName || !lastName || !role) {
         res.status(400).json({ error: "email, password, firstName, lastName, role are required" });
+        return;
+      }
+
+      if (!VALID_ROLES.includes(role)) {
+        res.status(400).json({ error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}` });
         return;
       }
 
@@ -105,24 +111,21 @@ router.patch(
   auditLog("UPDATE_USER", (req) => ({ type: "user", id: req.params.userId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const allowedFields = ["firstName", "lastName", "role", "isActive"];
-      const updates: Record<string, unknown> = {};
+      const updates: Partial<typeof usersTable.$inferInsert> = { updatedAt: new Date() };
 
-      for (const field of allowedFields) {
-        if (req.body[field] !== undefined) {
-          updates[field] = req.body[field];
-        }
+      if (req.body.firstName !== undefined) updates.firstName = req.body.firstName;
+      if (req.body.lastName !== undefined) updates.lastName = req.body.lastName;
+      if (req.body.isActive !== undefined) updates.isActive = req.body.isActive;
+      if (req.body.role !== undefined && VALID_ROLES.includes(req.body.role)) {
+        updates.role = req.body.role;
       }
-
       if (req.body.password) {
         updates.passwordHash = await bcrypt.hash(req.body.password, 12);
       }
 
-      updates.updatedAt = new Date();
-
       const [updated] = await db
         .update(usersTable)
-        .set(updates as any)
+        .set(updates)
         .where(eq(usersTable.id, req.params.userId))
         .returning({
           id: usersTable.id,
@@ -151,8 +154,6 @@ router.get(
   requireRole("SUPER_ADMIN"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const { auditLogsTable } = await import("@workspace/db/schema");
-      const { desc } = await import("drizzle-orm");
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
       const offset = parseInt(req.query.offset as string) || 0;
 

@@ -24,6 +24,20 @@ router.get(
         return;
       }
 
+      if (req.user!.role === "CARE_COORDINATOR") {
+        res.json({
+          id: form.id,
+          patientId: form.patientId,
+          personalProfile: form.personalProfile,
+          consentData: form.consentData,
+          isComplete: form.isComplete,
+          completedAt: form.completedAt,
+          createdAt: form.createdAt,
+          updatedAt: form.updatedAt,
+        });
+        return;
+      }
+
       res.json(form);
     } catch (err) {
       next(err);
@@ -73,7 +87,7 @@ router.patch(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const { personalProfile, medicalHistory, consentData } = req.body;
-      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      const updates: Partial<typeof intakeFormsTable.$inferInsert> = { updatedAt: new Date() };
 
       if (personalProfile !== undefined) updates.personalProfile = personalProfile;
       if (medicalHistory !== undefined) updates.medicalHistory = medicalHistory;
@@ -81,7 +95,7 @@ router.patch(
 
       const [updated] = await db
         .update(intakeFormsTable)
-        .set(updates as any)
+        .set(updates)
         .where(eq(intakeFormsTable.patientId, req.params.patientId))
         .returning();
 

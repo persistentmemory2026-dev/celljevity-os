@@ -1,10 +1,78 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { patientsTable, usersTable } from "@workspace/db/schema";
-import { eq, ilike, and, sql } from "drizzle-orm";
+import { patientsTable, usersTable, journeyStageEnum } from "@workspace/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireRole, requireSelfOrRole, auditLog, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
+const VALID_JOURNEY_STAGES = journeyStageEnum.enumValues;
+
+type PatientListItem = {
+  id: string;
+  celljevityId: string;
+  journeyStage: string;
+  isLead: boolean;
+  assignedCoordinatorId: string | null;
+  assignedProviderId: string | null;
+  createdAt: Date;
+  firstName: string;
+  lastName: string;
+  email: string;
+};
+
+type PatientDetail = {
+  id: string;
+  userId: string;
+  celljevityId: string;
+  dateOfBirth: string | null;
+  phone: string | null;
+  address: string | null;
+  journeyStage: string;
+  assignedCoordinatorId: string | null;
+  assignedProviderId: string | null;
+  isLead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  firstName: string;
+  lastName: string;
+  email: string;
+  medicalHistorySummary?: string | null;
+};
+
+function filterPatientByRole(patient: Record<string, unknown>, role: string): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    id: patient.id,
+    userId: patient.userId,
+    celljevityId: patient.celljevityId,
+    journeyStage: patient.journeyStage,
+    isLead: patient.isLead,
+    assignedCoordinatorId: patient.assignedCoordinatorId,
+    assignedProviderId: patient.assignedProviderId,
+    createdAt: patient.createdAt,
+    updatedAt: patient.updatedAt,
+    firstName: patient.firstName,
+    lastName: patient.lastName,
+    email: patient.email,
+  };
+
+  if (role === "PATIENT") {
+    base.dateOfBirth = patient.dateOfBirth;
+    base.phone = patient.phone;
+    base.address = patient.address;
+    base.medicalHistorySummary = patient.medicalHistorySummary;
+    return base;
+  }
+
+  base.dateOfBirth = patient.dateOfBirth;
+  base.phone = patient.phone;
+  base.address = patient.address;
+
+  if (role === "MEDICAL_PROVIDER" || role === "SUPER_ADMIN") {
+    base.medicalHistorySummary = patient.medicalHistorySummary;
+  }
+
+  return base;
+}
 
 router.get(
   "/patients",
@@ -15,9 +83,9 @@ router.get(
     try {
       const { stage, isLead, search, limit: limitStr, offset: offsetStr } = req.query;
 
-      const conditions = [];
-      if (stage && typeof stage === "string") {
-        conditions.push(eq(patientsTable.journeyStage, stage as any));
+      const conditions: ReturnType<typeof eq>[] = [];
+      if (stage && typeof stage === "string" && VALID_JOURNEY_STAGES.includes(stage as typeof VALID_JOURNEY_STAGES[number])) {
+        conditions.push(eq(patientsTable.journeyStage, stage as typeof VALID_JOURNEY_STAGES[number]));
       }
       if (isLead !== undefined) {
         conditions.push(eq(patientsTable.isLead, isLead === "true"));
@@ -44,7 +112,7 @@ router.get(
 
       if (search && typeof search === "string") {
         conditions.push(
-          sql`(${usersTable.firstName} ILIKE ${'%' + search + '%'} OR ${usersTable.lastName} ILIKE ${'%' + search + '%'} OR ${usersTable.email} ILIKE ${'%' + search + '%'} OR ${patientsTable.celljevityId} ILIKE ${'%' + search + '%'})`
+          sql`(${usersTable.firstName} ILIKE ${"%" + search + "%"} OR ${usersTable.lastName} ILIKE ${"%" + search + "%"} OR ${usersTable.email} ILIKE ${"%" + search + "%"} OR ${patientsTable.celljevityId} ILIKE ${"%" + search + "%"})` as ReturnType<typeof eq>
         );
       }
 
@@ -99,12 +167,7 @@ router.get(
         return;
       }
 
-      const response: Record<string, unknown> = { ...patient };
-      if (req.user?.role === "CARE_COORDINATOR") {
-        delete response.medicalHistorySummary;
-      }
-
-      res.json(response);
+      res.json(filterPatientByRole(patient as Record<string, unknown>, req.user!.role));
     } catch (err) {
       next(err);
     }
@@ -119,28 +182,25 @@ router.patch(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const { patientId } = req.params;
-      const updates: Record<string, unknown> = {};
+      const updates: Partial<typeof patientsTable.$inferInsert> = { updatedAt: new Date() };
 
-      const allowedFields = [
-        "journeyStage", "isLead", "assignedCoordinatorId",
-        "assignedProviderId", "dateOfBirth", "phone", "address",
-      ];
-
-      if (req.user?.role === "MEDICAL_PROVIDER" || req.user?.role === "SUPER_ADMIN") {
-        allowedFields.push("medicalHistorySummary");
+      if (req.body.journeyStage !== undefined && VALID_JOURNEY_STAGES.includes(req.body.journeyStage)) {
+        updates.journeyStage = req.body.journeyStage;
       }
+      if (req.body.isLead !== undefined) updates.isLead = req.body.isLead;
+      if (req.body.assignedCoordinatorId !== undefined) updates.assignedCoordinatorId = req.body.assignedCoordinatorId;
+      if (req.body.assignedProviderId !== undefined) updates.assignedProviderId = req.body.assignedProviderId;
+      if (req.body.dateOfBirth !== undefined) updates.dateOfBirth = req.body.dateOfBirth;
+      if (req.body.phone !== undefined) updates.phone = req.body.phone;
+      if (req.body.address !== undefined) updates.address = req.body.address;
 
-      for (const field of allowedFields) {
-        if (req.body[field] !== undefined) {
-          updates[field] = req.body[field];
-        }
+      if ((req.user?.role === "MEDICAL_PROVIDER" || req.user?.role === "SUPER_ADMIN") && req.body.medicalHistorySummary !== undefined) {
+        updates.medicalHistorySummary = req.body.medicalHistorySummary;
       }
-
-      updates.updatedAt = new Date();
 
       const [updated] = await db
         .update(patientsTable)
-        .set(updates as any)
+        .set(updates)
         .where(eq(patientsTable.id, patientId))
         .returning();
 

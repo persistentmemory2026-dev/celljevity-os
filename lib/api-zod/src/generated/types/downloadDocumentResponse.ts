@@ -10,5 +10,6 @@ export interface DownloadDocumentResponse {
   fileName: string;
   mimeType?: string | null;
   downloadUrl: string;
+  downloadToken: string;
   expiresIn: number;
 }

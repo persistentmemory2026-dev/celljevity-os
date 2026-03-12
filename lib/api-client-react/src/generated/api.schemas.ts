@@ -166,6 +166,99 @@ export interface UpdateUserRequest {
   password?: string;
 }
 
+export type LeadSource = (typeof LeadSource)[keyof typeof LeadSource];
+
+export const LeadSource = {
+  WEBSITE: "WEBSITE",
+  REFERRAL: "REFERRAL",
+  PARTNER: "PARTNER",
+  EVENT: "EVENT",
+  SOCIAL_MEDIA: "SOCIAL_MEDIA",
+  DIRECT: "DIRECT",
+  OTHER: "OTHER",
+} as const;
+
+export type LeadStatus = (typeof LeadStatus)[keyof typeof LeadStatus];
+
+export const LeadStatus = {
+  NEW: "NEW",
+  CONTACTED: "CONTACTED",
+  QUALIFIED: "QUALIFIED",
+  CONVERTED: "CONVERTED",
+  LOST: "LOST",
+} as const;
+
+export interface Lead {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string | null;
+  source?: LeadSource;
+  status?: LeadStatus;
+  notes?: string | null;
+  assignedTo?: string | null;
+  convertedPatientId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type CreateLeadInputSource =
+  (typeof CreateLeadInputSource)[keyof typeof CreateLeadInputSource];
+
+export const CreateLeadInputSource = {
+  WEBSITE: "WEBSITE",
+  REFERRAL: "REFERRAL",
+  PARTNER: "PARTNER",
+  EVENT: "EVENT",
+  SOCIAL_MEDIA: "SOCIAL_MEDIA",
+  DIRECT: "DIRECT",
+  OTHER: "OTHER",
+} as const;
+
+export interface CreateLeadInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  source?: CreateLeadInputSource;
+  notes?: string;
+}
+
+export type UpdateLeadInputSource =
+  (typeof UpdateLeadInputSource)[keyof typeof UpdateLeadInputSource];
+
+export const UpdateLeadInputSource = {
+  WEBSITE: "WEBSITE",
+  REFERRAL: "REFERRAL",
+  PARTNER: "PARTNER",
+  EVENT: "EVENT",
+  SOCIAL_MEDIA: "SOCIAL_MEDIA",
+  DIRECT: "DIRECT",
+  OTHER: "OTHER",
+} as const;
+
+export type UpdateLeadInputStatus =
+  (typeof UpdateLeadInputStatus)[keyof typeof UpdateLeadInputStatus];
+
+export const UpdateLeadInputStatus = {
+  NEW: "NEW",
+  CONTACTED: "CONTACTED",
+  QUALIFIED: "QUALIFIED",
+  CONVERTED: "CONVERTED",
+  LOST: "LOST",
+} as const;
+
+export interface UpdateLeadInput {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  source?: UpdateLeadInputSource;
+  status?: UpdateLeadInputStatus;
+  notes?: string;
+  assignedTo?: string;
+}
+
 export interface Patient {
   id: string;
   userId: string;
@@ -357,15 +450,25 @@ export interface UploadDocumentRequest {
   fileSize?: number;
 }
 
+export type UploadDocumentResponseDocument = {
+  id?: string;
+  documentType?: string;
+  fileName?: string;
+  storageKey?: string;
+};
+
 export interface UploadDocumentResponse {
-  document: Document;
+  document: UploadDocumentResponseDocument;
   uploadUrl: string;
+  uploadToken: string;
+  expiresAt: string;
 }
 
 export interface DownloadDocumentResponse {
   fileName: string;
   mimeType?: string | null;
   downloadUrl: string;
+  downloadToken: string;
   expiresIn: number;
 }
 
@@ -520,6 +623,57 @@ export type ListPatientsParams = {
   offset?: OffsetParameter;
 };
 
+export type ListLeadsParams = {
+  status?: ListLeadsStatus;
+  source?: ListLeadsSource;
+  search?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListLeadsStatus =
+  (typeof ListLeadsStatus)[keyof typeof ListLeadsStatus];
+
+export const ListLeadsStatus = {
+  NEW: "NEW",
+  CONTACTED: "CONTACTED",
+  QUALIFIED: "QUALIFIED",
+  CONVERTED: "CONVERTED",
+  LOST: "LOST",
+} as const;
+
+export type ListLeadsSource =
+  (typeof ListLeadsSource)[keyof typeof ListLeadsSource];
+
+export const ListLeadsSource = {
+  WEBSITE: "WEBSITE",
+  REFERRAL: "REFERRAL",
+  PARTNER: "PARTNER",
+  EVENT: "EVENT",
+  SOCIAL_MEDIA: "SOCIAL_MEDIA",
+  DIRECT: "DIRECT",
+  OTHER: "OTHER",
+} as const;
+
+export type ListLeads200 = {
+  data?: Lead[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+};
+
+export type ConvertLead200Patient = {
+  id?: string;
+  celljevityId?: string;
+  userId?: string;
+};
+
+export type ConvertLead200 = {
+  message?: string;
+  patient?: ConvertLead200Patient;
+  temporaryPassword?: string;
+};
+
 export type ListServicesParams = {
   category?: ServiceCategory;
   activeOnly?: boolean;
@@ -534,6 +688,15 @@ export type ListQuotesParams = {
 
 export type ListDocumentsParams = {
   documentType?: DocumentType;
+};
+
+export type UploadDocumentContent200 = {
+  message?: string;
+  fileSize?: number;
+};
+
+export type DownloadDocumentContentParams = {
+  token?: string;
 };
 
 export type ListBiomarkersParams = {

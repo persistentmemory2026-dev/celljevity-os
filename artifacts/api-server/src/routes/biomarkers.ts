@@ -1,10 +1,12 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { biomarkerResultsTable } from "@workspace/db/schema";
+import { biomarkerResultsTable, biomarkerTypeEnum, biomarkerStatusEnum } from "@workspace/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { requireAuth, requireSelfOrRole, requireRole, auditLog, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
+const VALID_BIOMARKER_TYPES = biomarkerTypeEnum.enumValues;
+const VALID_STATUS_FLAGS = biomarkerStatusEnum.enumValues;
 
 router.get(
   "/patients/:patientId/biomarkers",
@@ -16,8 +18,8 @@ router.get(
       const { type, from, to } = req.query;
       const conditions = [eq(biomarkerResultsTable.patientId, req.params.patientId)];
 
-      if (type && typeof type === "string") {
-        conditions.push(eq(biomarkerResultsTable.biomarkerType, type as any));
+      if (type && typeof type === "string" && VALID_BIOMARKER_TYPES.includes(type as typeof VALID_BIOMARKER_TYPES[number])) {
+        conditions.push(eq(biomarkerResultsTable.biomarkerType, type as typeof VALID_BIOMARKER_TYPES[number]));
       }
       if (from && typeof from === "string") {
         conditions.push(gte(biomarkerResultsTable.testDate, from));
@@ -32,7 +34,25 @@ router.get(
         .where(and(...conditions))
         .orderBy(desc(biomarkerResultsTable.testDate));
 
-      res.json({ data: results });
+      const role = req.user!.role;
+      const filtered = results.map((r) => {
+        if (role === "PATIENT" || role === "CARE_COORDINATOR") {
+          return {
+            id: r.id,
+            testDate: r.testDate,
+            biomarkerType: r.biomarkerType,
+            valueNumeric: r.valueNumeric,
+            unit: r.unit,
+            referenceRangeMin: r.referenceRangeMin,
+            referenceRangeMax: r.referenceRangeMax,
+            statusFlag: r.statusFlag,
+            createdAt: r.createdAt,
+          };
+        }
+        return r;
+      });
+
+      res.json({ data: filtered });
     } catch (err) {
       next(err);
     }
@@ -53,7 +73,12 @@ router.post(
         return;
       }
 
-      let statusFlag = "NORMAL";
+      if (!VALID_BIOMARKER_TYPES.includes(biomarkerType)) {
+        res.status(400).json({ error: `Invalid biomarkerType. Must be one of: ${VALID_BIOMARKER_TYPES.join(", ")}` });
+        return;
+      }
+
+      let statusFlag: typeof VALID_STATUS_FLAGS[number] = "NORMAL";
       const val = parseFloat(valueNumeric);
       const min = referenceRangeMin !== undefined ? parseFloat(referenceRangeMin) : null;
       const max = referenceRangeMax !== undefined ? parseFloat(referenceRangeMax) : null;
@@ -78,7 +103,7 @@ router.post(
         unit,
         referenceRangeMin: referenceRangeMin !== undefined ? String(referenceRangeMin) : null,
         referenceRangeMax: referenceRangeMax !== undefined ? String(referenceRangeMax) : null,
-        statusFlag: statusFlag as any,
+        statusFlag,
         enteredBy: req.user!.id,
       }).returning();
 

@@ -53,14 +53,16 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 ## Database Schema
 
-11 tables, all using UUID primary keys (`gen_random_uuid()`):
+13 tables, all using UUID primary keys (`gen_random_uuid()`):
 
 - **users** — email, bcrypt passwordHash, role (PATIENT/CARE_COORDINATOR/MEDICAL_PROVIDER/SUPER_ADMIN), isActive
-- **patients** — linked to users, celljevityId (auto-generated), journeyStage (ACQUISITION→ONBOARDING→IN_TREATMENT→FOLLOW_UP→ALUMNI), isLead, medical history, assigned coordinator/provider
-- **service_catalog** — category (NK_CELLS/PROMETHEUS/LONGEVITY_PANEL/PARTNER_SERVICE/OTHER), pricing, partner info
+- **patients** — linked to users, celljevityId (auto-generated), journeyStage (ACQUISITION→INTAKE→DIAGNOSTICS→PLANNING→TREATMENT→FOLLOW_UP), isLead, medical history, assigned coordinator/provider
+- **leads** — lead/prospect tracking with source (WEBSITE/REFERRAL/PARTNER/EVENT/SOCIAL_MEDIA/DIRECT/OTHER), status (NEW→CONTACTED→QUALIFIED→CONVERTED/LOST), conversion to patient
+- **service_catalog** — category (EXOSOMES/PROMETHEUS/NK_CELLS/DIAGNOSTICS/OTHER), pricing, partner info
 - **quotes** — invoice/quote with auto-incrementing INV-YYYYMMDD-XXXX number, status (DRAFT→SENT→ACCEPTED→REJECTED→CANCELLED→PAID), currency, exchange rate
 - **invoice_line_items** — per-quote line items with service ref, qty, unit price, auto-calculated line total
-- **documents** — document vault with category, storageKey pattern, metadata JSON, file tracking
+- **documents** — document vault with category, storageKey pattern, file tracking
+- **document_tokens** — signed tokens for upload/download with expiry and single-use enforcement
 - **audit_logs** — GDPR audit trail (action, entity, before/after snapshots, IP, user agent)
 - **security_events** — login/logout/failed attempts, IP tracking
 - **biomarker_results** — biomarker tracking with test date, category, results JSON
@@ -74,9 +76,10 @@ All routes mounted under `/api`:
 - **Auth**: POST /auth/register, POST /auth/login, POST /auth/logout, GET /auth/me
 - **Users**: GET /users, GET /users/:id, PATCH /users/:id, GET /users/audit-logs (admin)
 - **Patients**: GET /patients, POST /patients, GET /patients/:id, PATCH /patients/:id, GET /patients/me/profile
+- **Leads**: GET /leads, POST /leads, GET /leads/:id, PATCH /leads/:id, DELETE /leads/:id, POST /leads/:id/convert
 - **Services**: GET /services, POST /services, GET /services/:id, PATCH /services/:id
 - **Quotes**: GET /quotes, POST /quotes, GET /quotes/:id, PATCH /quotes/:id/status, POST /quotes/:id/line-items, DELETE /quotes/:id/line-items/:lineItemId
-- **Documents**: GET /documents, POST /documents, GET /documents/:id, DELETE /documents/:id
+- **Documents**: GET /patients/:id/documents, POST /patients/:id/documents, PUT /documents/:id/upload (token-based), GET /documents/:id/download, GET /documents/:id/content (token-based), DELETE /documents/:id
 - **Intake**: GET /intake, POST /intake, GET /intake/:id
 - **Biomarkers**: GET /biomarkers, POST /biomarkers, GET /biomarkers/:id
 - **Consent**: GET /consent, POST /consent, POST /consent/:id/revoke

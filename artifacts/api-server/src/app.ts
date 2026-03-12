@@ -18,10 +18,12 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+const pgStorePool: ConstructorParameters<typeof PgStore>[0]["pool"] = pool;
+
 app.use(
   session({
     store: new PgStore({
-      pool: pool as any,
+      pool: pgStorePool,
       tableName: "user_sessions",
       createTableIfMissing: true,
     }),

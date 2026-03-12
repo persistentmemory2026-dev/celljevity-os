@@ -348,6 +348,207 @@ export const UpdatePatientResponse = zod.object({
 });
 
 /**
+ * @summary List all leads
+ */
+export const ListLeadsQueryParams = zod.object({
+  status: zod
+    .enum(["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"])
+    .optional(),
+  source: zod
+    .enum([
+      "WEBSITE",
+      "REFERRAL",
+      "PARTNER",
+      "EVENT",
+      "SOCIAL_MEDIA",
+      "DIRECT",
+      "OTHER",
+    ])
+    .optional(),
+  search: zod.coerce.string().optional(),
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListLeadsResponse = zod.object({
+  data: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid().optional(),
+        firstName: zod.string().optional(),
+        lastName: zod.string().optional(),
+        email: zod.string().optional(),
+        phone: zod.string().nullish(),
+        source: zod
+          .enum([
+            "WEBSITE",
+            "REFERRAL",
+            "PARTNER",
+            "EVENT",
+            "SOCIAL_MEDIA",
+            "DIRECT",
+            "OTHER",
+          ])
+          .optional(),
+        status: zod
+          .enum(["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"])
+          .optional(),
+        notes: zod.string().nullish(),
+        assignedTo: zod.string().uuid().nullish(),
+        convertedPatientId: zod.string().uuid().nullish(),
+        createdAt: zod.date().optional(),
+        updatedAt: zod.date().optional(),
+      }),
+    )
+    .optional(),
+  total: zod.number().optional(),
+  limit: zod.number().optional(),
+  offset: zod.number().optional(),
+});
+
+/**
+ * @summary Create a new lead
+ */
+export const CreateLeadBody = zod.object({
+  firstName: zod.string(),
+  lastName: zod.string(),
+  email: zod.string(),
+  phone: zod.string().optional(),
+  source: zod
+    .enum([
+      "WEBSITE",
+      "REFERRAL",
+      "PARTNER",
+      "EVENT",
+      "SOCIAL_MEDIA",
+      "DIRECT",
+      "OTHER",
+    ])
+    .optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get lead details
+ */
+export const GetLeadParams = zod.object({
+  leadId: zod.coerce.string().uuid(),
+});
+
+export const GetLeadResponse = zod.object({
+  id: zod.string().uuid().optional(),
+  firstName: zod.string().optional(),
+  lastName: zod.string().optional(),
+  email: zod.string().optional(),
+  phone: zod.string().nullish(),
+  source: zod
+    .enum([
+      "WEBSITE",
+      "REFERRAL",
+      "PARTNER",
+      "EVENT",
+      "SOCIAL_MEDIA",
+      "DIRECT",
+      "OTHER",
+    ])
+    .optional(),
+  status: zod
+    .enum(["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"])
+    .optional(),
+  notes: zod.string().nullish(),
+  assignedTo: zod.string().uuid().nullish(),
+  convertedPatientId: zod.string().uuid().nullish(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+
+/**
+ * @summary Update a lead
+ */
+export const UpdateLeadParams = zod.object({
+  leadId: zod.coerce.string().uuid(),
+});
+
+export const UpdateLeadBody = zod.object({
+  firstName: zod.string().optional(),
+  lastName: zod.string().optional(),
+  phone: zod.string().optional(),
+  source: zod
+    .enum([
+      "WEBSITE",
+      "REFERRAL",
+      "PARTNER",
+      "EVENT",
+      "SOCIAL_MEDIA",
+      "DIRECT",
+      "OTHER",
+    ])
+    .optional(),
+  status: zod
+    .enum(["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"])
+    .optional(),
+  notes: zod.string().optional(),
+  assignedTo: zod.string().uuid().optional(),
+});
+
+export const UpdateLeadResponse = zod.object({
+  id: zod.string().uuid().optional(),
+  firstName: zod.string().optional(),
+  lastName: zod.string().optional(),
+  email: zod.string().optional(),
+  phone: zod.string().nullish(),
+  source: zod
+    .enum([
+      "WEBSITE",
+      "REFERRAL",
+      "PARTNER",
+      "EVENT",
+      "SOCIAL_MEDIA",
+      "DIRECT",
+      "OTHER",
+    ])
+    .optional(),
+  status: zod
+    .enum(["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"])
+    .optional(),
+  notes: zod.string().nullish(),
+  assignedTo: zod.string().uuid().nullish(),
+  convertedPatientId: zod.string().uuid().nullish(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+
+/**
+ * @summary Delete a lead
+ */
+export const DeleteLeadParams = zod.object({
+  leadId: zod.coerce.string().uuid(),
+});
+
+export const DeleteLeadResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Convert lead to patient
+ */
+export const ConvertLeadParams = zod.object({
+  leadId: zod.coerce.string().uuid(),
+});
+
+export const ConvertLeadResponse = zod.object({
+  message: zod.string().optional(),
+  patient: zod
+    .object({
+      id: zod.string().uuid().optional(),
+      celljevityId: zod.string().optional(),
+      userId: zod.string().uuid().optional(),
+    })
+    .optional(),
+  temporaryPassword: zod.string().optional(),
+});
+
+/**
  * @summary List services
  */
 export const ListServicesQueryParams = zod.object({
@@ -688,7 +889,23 @@ export const UploadDocumentBody = zod.object({
 });
 
 /**
- * @summary Get time-limited download URL
+ * @summary Upload file content using a signed upload token
+ */
+export const UploadDocumentContentParams = zod.object({
+  documentId: zod.coerce.string().uuid(),
+});
+
+export const UploadDocumentContentHeader = zod.object({
+  "x-upload-token": zod.string(),
+});
+
+export const UploadDocumentContentResponse = zod.object({
+  message: zod.string().optional(),
+  fileSize: zod.number().optional(),
+});
+
+/**
+ * @summary Get time-limited download token
  */
 export const DownloadDocumentParams = zod.object({
   documentId: zod.coerce.string().uuid(),
@@ -698,7 +915,23 @@ export const DownloadDocumentResponse = zod.object({
   fileName: zod.string(),
   mimeType: zod.string().nullish(),
   downloadUrl: zod.string(),
+  downloadToken: zod.string(),
   expiresIn: zod.number(),
+});
+
+/**
+ * @summary Download file content using a signed download token
+ */
+export const DownloadDocumentContentParams = zod.object({
+  documentId: zod.coerce.string().uuid(),
+});
+
+export const DownloadDocumentContentQueryParams = zod.object({
+  token: zod.coerce.string().optional(),
+});
+
+export const DownloadDocumentContentHeader = zod.object({
+  "x-download-token": zod.string().optional(),
 });
 
 /**

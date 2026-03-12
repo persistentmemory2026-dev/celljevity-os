@@ -16,6 +16,8 @@ tags:
     description: User management
   - name: patients
     description: Patient CRM
+  - name: leads
+    description: Lead/prospect management
   - name: services
     description: Service catalog
   - name: quotes
@@ -287,6 +289,168 @@ paths:
               schema:
                 $ref: "#/components/schemas/Patient"
 
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [leads]
+      summary: List all leads
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [NEW, CONTACTED, QUALIFIED, CONVERTED, LOST]
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [WEBSITE, REFERRAL, PARTNER, EVENT, SOCIAL_MEDIA, DIRECT, OTHER]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Leads list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Lead"
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+    post:
+      operationId: createLead
+      tags: [leads]
+      summary: Create a new lead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeadInput"
+      responses:
+        "201":
+          description: Lead created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+
+  /leads/{leadId}:
+    get:
+      operationId: getLead
+      tags: [leads]
+      summary: Get lead details
+      parameters:
+        - name: leadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lead detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+    patch:
+      operationId: updateLead
+      tags: [leads]
+      summary: Update a lead
+      parameters:
+        - name: leadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeadInput"
+      responses:
+        "200":
+          description: Lead updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+    delete:
+      operationId: deleteLead
+      tags: [leads]
+      summary: Delete a lead
+      parameters:
+        - name: leadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lead deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /leads/{leadId}/convert:
+    post:
+      operationId: convertLead
+      tags: [leads]
+      summary: Convert lead to patient
+      parameters:
+        - name: leadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lead converted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  patient:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      celljevityId:
+                        type: string
+                      userId:
+                        type: string
+                        format: uuid
+                  temporaryPassword:
+                    type: string
+
   /services:
     get:
       operationId: listServices
@@ -526,11 +690,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/UploadDocumentResponse"
 
+  /documents/{documentId}/upload:
+    put:
+      operationId: uploadDocumentContent
+      tags: [documents]
+      summary: Upload file content using a signed upload token
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: x-upload-token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  fileSize:
+                    type: integer
+
   /documents/{documentId}/download:
     get:
       operationId: downloadDocument
       tags: [documents]
-      summary: Get time-limited download URL
+      summary: Get time-limited download token
       parameters:
         - name: documentId
           in: path
@@ -540,11 +741,40 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Download URL
+          description: Download token and URL
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DownloadDocumentResponse"
+
+  /documents/{documentId}/content:
+    get:
+      operationId: downloadDocumentContent
+      tags: [documents]
+      summary: Download file content using a signed download token
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: x-download-token
+          in: header
+          schema:
+            type: string
+        - name: token
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
 
   /documents/{documentId}:
     delete:
@@ -981,6 +1211,84 @@ components:
           type: boolean
         password:
           type: string
+
+    Lead:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [WEBSITE, REFERRAL, PARTNER, EVENT, SOCIAL_MEDIA, DIRECT, OTHER]
+        status:
+          type: string
+          enum: [NEW, CONTACTED, QUALIFIED, CONVERTED, LOST]
+        notes:
+          type: string
+          nullable: true
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+        convertedPatientId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateLeadInput:
+      type: object
+      required: [firstName, lastName, email]
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        source:
+          type: string
+          enum: [WEBSITE, REFERRAL, PARTNER, EVENT, SOCIAL_MEDIA, DIRECT, OTHER]
+        notes:
+          type: string
+
+    UpdateLeadInput:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        source:
+          type: string
+          enum: [WEBSITE, REFERRAL, PARTNER, EVENT, SOCIAL_MEDIA, DIRECT, OTHER]
+        status:
+          type: string
+          enum: [NEW, CONTACTED, QUALIFIED, CONVERTED, LOST]
+        notes:
+          type: string
+        assignedTo:
+          type: string
+          format: uuid
 
     Patient:
       type: object
@@ -1419,10 +1727,25 @@ components:
       type: object
       properties:
         document:
-          $ref: "#/components/schemas/Document"
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            documentType:
+              type: string
+            fileName:
+              type: string
+            storageKey:
+              type: string
         uploadUrl:
           type: string
-      required: [document, uploadUrl]
+        uploadToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required: [document, uploadUrl, uploadToken, expiresAt]
 
     DownloadDocumentResponse:
       type: object
@@ -1434,9 +1757,11 @@ components:
           nullable: true
         downloadUrl:
           type: string
+        downloadToken:
+          type: string
         expiresIn:
           type: integer
-      required: [fileName, downloadUrl, expiresIn]
+      required: [fileName, downloadUrl, downloadToken, expiresIn]
 
     IntakeForm:
       type: object

@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
-  patientsTable, usersTable, documentsTable, intakeFormsTable,
+  patientsTable, usersTable, documentsTable, documentTokensTable, intakeFormsTable,
   biomarkerResultsTable, consentRecordsTable, quotesTable,
-  invoiceLineItemsTable, auditLogsTable,
+  invoiceLineItemsTable, auditLogsTable, leadsTable,
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, auditLog, type AuthenticatedRequest } from "../middlewares";
@@ -121,7 +121,14 @@ router.post(
       await db.delete(biomarkerResultsTable).where(eq(biomarkerResultsTable.patientId, patient.id));
       await db.delete(consentRecordsTable).where(eq(consentRecordsTable.patientId, patient.id));
       await db.delete(intakeFormsTable).where(eq(intakeFormsTable.patientId, patient.id));
+
+      const patientDocs = await db.select({ id: documentsTable.id }).from(documentsTable).where(eq(documentsTable.patientId, patient.id));
+      for (const doc of patientDocs) {
+        await db.delete(documentTokensTable).where(eq(documentTokensTable.documentId, doc.id));
+      }
       await db.delete(documentsTable).where(eq(documentsTable.patientId, patient.id));
+
+      await db.delete(leadsTable).where(eq(leadsTable.convertedPatientId, patient.id));
       await db.delete(patientsTable).where(eq(patientsTable.id, patient.id));
 
       await db.insert(auditLogsTable).values({

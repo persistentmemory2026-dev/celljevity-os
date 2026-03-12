@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { quotesTable, invoiceLineItemsTable, serviceCatalogTable } from "@workspace/db/schema";
+import { quotesTable, invoiceLineItemsTable, serviceCatalogTable, quoteStatusEnum, patientsTable } from "@workspace/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAuth, requireRole, requireSelfOrRole, auditLog, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireRole, auditLog, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
+const VALID_QUOTE_STATUSES = quoteStatusEnum.enumValues;
 
 function generateInvoiceNumber(): string {
   const now = new Date();
@@ -18,18 +19,47 @@ function generateInvoiceNumber(): string {
 router.get(
   "/quotes",
   requireAuth,
-  requireRole("CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
-  auditLog("LIST_QUOTES"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const { patientId, status, limit: limitStr, offset: offsetStr } = req.query;
-      const conditions = [];
+      const role = req.user!.role;
+
+      if (role === "PATIENT") {
+        const [patient] = await db
+          .select({ id: patientsTable.id })
+          .from(patientsTable)
+          .where(eq(patientsTable.userId, req.user!.id))
+          .limit(1);
+
+        if (!patient) {
+          res.json({ data: [], limit: 50, offset: 0 });
+          return;
+        }
+
+        const quotes = await db
+          .select({
+            id: quotesTable.id,
+            invoiceNumber: quotesTable.invoiceNumber,
+            status: quotesTable.status,
+            issueDate: quotesTable.issueDate,
+            currency: quotesTable.currency,
+            totalAmount: quotesTable.totalAmount,
+            createdAt: quotesTable.createdAt,
+          })
+          .from(quotesTable)
+          .where(eq(quotesTable.patientId, patient.id));
+
+        res.json({ data: quotes, limit: quotes.length, offset: 0 });
+        return;
+      }
+
+      const conditions: ReturnType<typeof eq>[] = [];
 
       if (patientId && typeof patientId === "string") {
         conditions.push(eq(quotesTable.patientId, patientId));
       }
-      if (status && typeof status === "string") {
-        conditions.push(eq(quotesTable.status, status as any));
+      if (status && typeof status === "string" && VALID_QUOTE_STATUSES.includes(status as typeof VALID_QUOTE_STATUSES[number])) {
+        conditions.push(eq(quotesTable.status, status as typeof VALID_QUOTE_STATUSES[number]));
       }
 
       const limit = Math.min(parseInt(limitStr as string) || 50, 100);
@@ -64,6 +94,24 @@ router.get(
         return;
       }
 
+      if (req.user!.role === "PATIENT") {
+        const [patient] = await db
+          .select({ id: patientsTable.id })
+          .from(patientsTable)
+          .where(
+            and(
+              eq(patientsTable.id, quote.patientId),
+              eq(patientsTable.userId, req.user!.id)
+            )
+          )
+          .limit(1);
+
+        if (!patient) {
+          res.status(403).json({ error: "Access denied" });
+          return;
+        }
+      }
+
       const lineItems = await db
         .select({
           id: invoiceLineItemsTable.id,
@@ -78,6 +126,21 @@ router.get(
         .from(invoiceLineItemsTable)
         .leftJoin(serviceCatalogTable, eq(invoiceLineItemsTable.serviceId, serviceCatalogTable.id))
         .where(eq(invoiceLineItemsTable.quoteId, quote.id));
+
+      if (req.user!.role === "PATIENT") {
+        res.json({
+          id: quote.id,
+          invoiceNumber: quote.invoiceNumber,
+          status: quote.status,
+          issueDate: quote.issueDate,
+          currency: quote.currency,
+          totalAmount: quote.totalAmount,
+          notesAndTerms: quote.notesAndTerms,
+          createdAt: quote.createdAt,
+          lineItems,
+        });
+        return;
+      }
 
       res.json({ ...quote, lineItems });
     } catch (err) {
@@ -124,24 +187,19 @@ router.patch(
   auditLog("UPDATE_QUOTE", (req) => ({ type: "quote", id: req.params.quoteId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const allowedFields = ["status", "currency", "exchangeRateUsed", "notesAndTerms", "totalAmount"];
-      const updates: Record<string, unknown> = {};
+      const updates: Partial<typeof quotesTable.$inferInsert> = { updatedAt: new Date() };
 
-      for (const field of allowedFields) {
-        if (req.body[field] !== undefined) {
-          if (field === "exchangeRateUsed" || field === "totalAmount") {
-            updates[field] = String(req.body[field]);
-          } else {
-            updates[field] = req.body[field];
-          }
-        }
+      if (req.body.status !== undefined && VALID_QUOTE_STATUSES.includes(req.body.status)) {
+        updates.status = req.body.status;
       }
-
-      updates.updatedAt = new Date();
+      if (req.body.currency !== undefined) updates.currency = req.body.currency;
+      if (req.body.exchangeRateUsed !== undefined) updates.exchangeRateUsed = String(req.body.exchangeRateUsed);
+      if (req.body.notesAndTerms !== undefined) updates.notesAndTerms = req.body.notesAndTerms;
+      if (req.body.totalAmount !== undefined) updates.totalAmount = String(req.body.totalAmount);
 
       const [updated] = await db
         .update(quotesTable)
-        .set(updates as any)
+        .set(updates)
         .where(eq(quotesTable.id, req.params.quoteId))
         .returning();
 

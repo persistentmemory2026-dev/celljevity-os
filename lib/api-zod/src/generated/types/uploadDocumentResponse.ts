@@ -5,9 +5,11 @@
  * Celljevity Longevity OS API
  * OpenAPI spec version: 0.1.0
  */
-import type { Document } from "./document";
+import type { UploadDocumentResponseDocument } from "./uploadDocumentResponseDocument";
 
 export interface UploadDocumentResponse {
-  document: Document;
+  document: UploadDocumentResponseDocument;
   uploadUrl: string;
+  uploadToken: string;
+  expiresAt: Date;
 }

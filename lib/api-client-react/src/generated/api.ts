@@ -22,12 +22,15 @@ import type {
   BiomarkerResult,
   ConsentListResponse,
   ConsentRecord,
+  ConvertLead200,
   CreateBiomarkerRequest,
+  CreateLeadInput,
   CreateLineItemRequest,
   CreateQuoteRequest,
   CreateServiceRequest,
   CreateUserRequest,
   DocumentListResponse,
+  DownloadDocumentContentParams,
   DownloadDocumentResponse,
   ErrorResponse,
   GdprDeleteResponse,
@@ -37,9 +40,12 @@ import type {
   HealthStatus,
   IntakeForm,
   IntakeFormData,
+  Lead,
   LineItem,
   ListBiomarkersParams,
   ListDocumentsParams,
+  ListLeads200,
+  ListLeadsParams,
   ListPatientsParams,
   ListQuotesParams,
   ListServicesParams,
@@ -55,10 +61,12 @@ import type {
   RegisterRequest,
   Service,
   ServiceListResponse,
+  UpdateLeadInput,
   UpdatePatientRequest,
   UpdateQuoteRequest,
   UpdateServiceRequest,
   UpdateUserRequest,
+  UploadDocumentContent200,
   UploadDocumentRequest,
   UploadDocumentResponse,
   UserListResponse,
@@ -1180,6 +1188,518 @@ export const useUpdatePatient = <
 };
 
 /**
+ * @summary List all leads
+ */
+export const getListLeadsUrl = (params?: ListLeadsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/leads?${stringifiedParams}`
+    : `/api/leads`;
+};
+
+export const listLeads = async (
+  params?: ListLeadsParams,
+  options?: RequestInit,
+): Promise<ListLeads200> => {
+  return customFetch<ListLeads200>(getListLeadsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLeadsQueryKey = (params?: ListLeadsParams) => {
+  return [`/api/leads`, ...(params ? [params] : [])] as const;
+};
+
+export const getListLeadsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLeads>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListLeadsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listLeads>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListLeadsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listLeads>>> = ({
+    signal,
+  }) => listLeads(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLeads>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLeadsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLeads>>
+>;
+export type ListLeadsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all leads
+ */
+
+export function useListLeads<
+  TData = Awaited<ReturnType<typeof listLeads>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListLeadsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listLeads>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLeadsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new lead
+ */
+export const getCreateLeadUrl = () => {
+  return `/api/leads`;
+};
+
+export const createLead = async (
+  createLeadInput: CreateLeadInput,
+  options?: RequestInit,
+): Promise<Lead> => {
+  return customFetch<Lead>(getCreateLeadUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createLeadInput),
+  });
+};
+
+export const getCreateLeadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLead>>,
+    TError,
+    { data: BodyType<CreateLeadInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createLead>>,
+  TError,
+  { data: BodyType<CreateLeadInput> },
+  TContext
+> => {
+  const mutationKey = ["createLead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createLead>>,
+    { data: BodyType<CreateLeadInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createLead(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateLeadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createLead>>
+>;
+export type CreateLeadMutationBody = BodyType<CreateLeadInput>;
+export type CreateLeadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new lead
+ */
+export const useCreateLead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLead>>,
+    TError,
+    { data: BodyType<CreateLeadInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createLead>>,
+  TError,
+  { data: BodyType<CreateLeadInput> },
+  TContext
+> => {
+  return useMutation(getCreateLeadMutationOptions(options));
+};
+
+/**
+ * @summary Get lead details
+ */
+export const getGetLeadUrl = (leadId: string) => {
+  return `/api/leads/${leadId}`;
+};
+
+export const getLead = async (
+  leadId: string,
+  options?: RequestInit,
+): Promise<Lead> => {
+  return customFetch<Lead>(getGetLeadUrl(leadId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLeadQueryKey = (leadId: string) => {
+  return [`/api/leads/${leadId}`] as const;
+};
+
+export const getGetLeadQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLead>>,
+  TError = ErrorType<unknown>,
+>(
+  leadId: string,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getLead>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLeadQueryKey(leadId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLead>>> = ({
+    signal,
+  }) => getLead(leadId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!leadId,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getLead>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetLeadQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLead>>
+>;
+export type GetLeadQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get lead details
+ */
+
+export function useGetLead<
+  TData = Awaited<ReturnType<typeof getLead>>,
+  TError = ErrorType<unknown>,
+>(
+  leadId: string,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getLead>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLeadQueryOptions(leadId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a lead
+ */
+export const getUpdateLeadUrl = (leadId: string) => {
+  return `/api/leads/${leadId}`;
+};
+
+export const updateLead = async (
+  leadId: string,
+  updateLeadInput: UpdateLeadInput,
+  options?: RequestInit,
+): Promise<Lead> => {
+  return customFetch<Lead>(getUpdateLeadUrl(leadId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateLeadInput),
+  });
+};
+
+export const getUpdateLeadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLead>>,
+    TError,
+    { leadId: string; data: BodyType<UpdateLeadInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLead>>,
+  TError,
+  { leadId: string; data: BodyType<UpdateLeadInput> },
+  TContext
+> => {
+  const mutationKey = ["updateLead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLead>>,
+    { leadId: string; data: BodyType<UpdateLeadInput> }
+  > = (props) => {
+    const { leadId, data } = props ?? {};
+
+    return updateLead(leadId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLeadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLead>>
+>;
+export type UpdateLeadMutationBody = BodyType<UpdateLeadInput>;
+export type UpdateLeadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a lead
+ */
+export const useUpdateLead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLead>>,
+    TError,
+    { leadId: string; data: BodyType<UpdateLeadInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLead>>,
+  TError,
+  { leadId: string; data: BodyType<UpdateLeadInput> },
+  TContext
+> => {
+  return useMutation(getUpdateLeadMutationOptions(options));
+};
+
+/**
+ * @summary Delete a lead
+ */
+export const getDeleteLeadUrl = (leadId: string) => {
+  return `/api/leads/${leadId}`;
+};
+
+export const deleteLead = async (
+  leadId: string,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getDeleteLeadUrl(leadId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteLeadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLead>>,
+    TError,
+    { leadId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteLead>>,
+  TError,
+  { leadId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteLead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteLead>>,
+    { leadId: string }
+  > = (props) => {
+    const { leadId } = props ?? {};
+
+    return deleteLead(leadId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteLeadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteLead>>
+>;
+
+export type DeleteLeadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a lead
+ */
+export const useDeleteLead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLead>>,
+    TError,
+    { leadId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteLead>>,
+  TError,
+  { leadId: string },
+  TContext
+> => {
+  return useMutation(getDeleteLeadMutationOptions(options));
+};
+
+/**
+ * @summary Convert lead to patient
+ */
+export const getConvertLeadUrl = (leadId: string) => {
+  return `/api/leads/${leadId}/convert`;
+};
+
+export const convertLead = async (
+  leadId: string,
+  options?: RequestInit,
+): Promise<ConvertLead200> => {
+  return customFetch<ConvertLead200>(getConvertLeadUrl(leadId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getConvertLeadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof convertLead>>,
+    TError,
+    { leadId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof convertLead>>,
+  TError,
+  { leadId: string },
+  TContext
+> => {
+  const mutationKey = ["convertLead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof convertLead>>,
+    { leadId: string }
+  > = (props) => {
+    const { leadId } = props ?? {};
+
+    return convertLead(leadId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConvertLeadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof convertLead>>
+>;
+
+export type ConvertLeadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Convert lead to patient
+ */
+export const useConvertLead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof convertLead>>,
+    TError,
+    { leadId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof convertLead>>,
+  TError,
+  { leadId: string },
+  TContext
+> => {
+  return useMutation(getConvertLeadMutationOptions(options));
+};
+
+/**
  * @summary List services
  */
 export const getListServicesUrl = (params?: ListServicesParams) => {
@@ -2263,7 +2783,100 @@ export const useUploadDocument = <
 };
 
 /**
- * @summary Get time-limited download URL
+ * @summary Upload file content using a signed upload token
+ */
+export const getUploadDocumentContentUrl = (documentId: string) => {
+  return `/api/documents/${documentId}/upload`;
+};
+
+export const uploadDocumentContent = async (
+  documentId: string,
+  uploadDocumentContentBody: Blob,
+  options?: RequestInit,
+): Promise<UploadDocumentContent200> => {
+  return customFetch<UploadDocumentContent200>(
+    getUploadDocumentContentUrl(documentId),
+    {
+      ...options,
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        ...options?.headers,
+      },
+      body: JSON.stringify(uploadDocumentContentBody),
+    },
+  );
+};
+
+export const getUploadDocumentContentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadDocumentContent>>,
+    TError,
+    { documentId: string; data: BodyType<Blob> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadDocumentContent>>,
+  TError,
+  { documentId: string; data: BodyType<Blob> },
+  TContext
+> => {
+  const mutationKey = ["uploadDocumentContent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadDocumentContent>>,
+    { documentId: string; data: BodyType<Blob> }
+  > = (props) => {
+    const { documentId, data } = props ?? {};
+
+    return uploadDocumentContent(documentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadDocumentContentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadDocumentContent>>
+>;
+export type UploadDocumentContentMutationBody = BodyType<Blob>;
+export type UploadDocumentContentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upload file content using a signed upload token
+ */
+export const useUploadDocumentContent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadDocumentContent>>,
+    TError,
+    { documentId: string; data: BodyType<Blob> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadDocumentContent>>,
+  TError,
+  { documentId: string; data: BodyType<Blob> },
+  TContext
+> => {
+  return useMutation(getUploadDocumentContentMutationOptions(options));
+};
+
+/**
+ * @summary Get time-limited download token
  */
 export const getDownloadDocumentUrl = (documentId: string) => {
   return `/api/documents/${documentId}/download`;
@@ -2328,7 +2941,7 @@ export type DownloadDocumentQueryResult = NonNullable<
 export type DownloadDocumentQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get time-limited download URL
+ * @summary Get time-limited download token
  */
 
 export function useDownloadDocument<
@@ -2346,6 +2959,124 @@ export function useDownloadDocument<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getDownloadDocumentQueryOptions(documentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Download file content using a signed download token
+ */
+export const getDownloadDocumentContentUrl = (
+  documentId: string,
+  params?: DownloadDocumentContentParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/documents/${documentId}/content?${stringifiedParams}`
+    : `/api/documents/${documentId}/content`;
+};
+
+export const downloadDocumentContent = async (
+  documentId: string,
+  params?: DownloadDocumentContentParams,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getDownloadDocumentContentUrl(documentId, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getDownloadDocumentContentQueryKey = (
+  documentId: string,
+  params?: DownloadDocumentContentParams,
+) => {
+  return [
+    `/api/documents/${documentId}/content`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getDownloadDocumentContentQueryOptions = <
+  TData = Awaited<ReturnType<typeof downloadDocumentContent>>,
+  TError = ErrorType<unknown>,
+>(
+  documentId: string,
+  params?: DownloadDocumentContentParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadDocumentContent>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getDownloadDocumentContentQueryKey(documentId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof downloadDocumentContent>>
+  > = ({ signal }) =>
+    downloadDocumentContent(documentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!documentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof downloadDocumentContent>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadDocumentContentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadDocumentContent>>
+>;
+export type DownloadDocumentContentQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Download file content using a signed download token
+ */
+
+export function useDownloadDocumentContent<
+  TData = Awaited<ReturnType<typeof downloadDocumentContent>>,
+  TError = ErrorType<unknown>,
+>(
+  documentId: string,
+  params?: DownloadDocumentContentParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadDocumentContent>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadDocumentContentQueryOptions(
+    documentId,
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
