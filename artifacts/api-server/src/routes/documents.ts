@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { documentsTable, documentTokensTable, patientsTable, documentTypeEnum, auditLogsTable } from "@workspace/db/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
-import { requireAuth, requireRole, requireSelfOrRole, requireAssignedOrAdmin, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireRole, requireSelfOrRole, requireAssignedOrAdmin, checkStaffAssignment, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs/promises";
@@ -132,6 +132,13 @@ router.get(
         return;
       }
 
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, doc.patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_document", documentId: req.params.documentId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
       res.json({
         id: doc.id,
         patientId: doc.patientId,
@@ -156,6 +163,24 @@ router.patch(
   auditLog("UPDATE_DOCUMENT_METADATA", (req) => ({ type: "document", id: req.params.documentId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      const [doc] = await db
+        .select({ patientId: documentsTable.patientId })
+        .from(documentsTable)
+        .where(eq(documentsTable.id, req.params.documentId))
+        .limit(1);
+
+      if (!doc) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, doc.patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_document_update", documentId: req.params.documentId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
       const updates: Partial<typeof documentsTable.$inferInsert> = {};
 
       if (req.body.documentType !== undefined && VALID_DOC_TYPES.includes(req.body.documentType)) {
@@ -171,11 +196,6 @@ router.patch(
         .set(updates)
         .where(eq(documentsTable.id, req.params.documentId))
         .returning();
-
-      if (!updated) {
-        res.status(404).json({ error: "Document not found" });
-        return;
-      }
 
       res.json({
         id: updated.id,
@@ -368,6 +388,13 @@ router.get(
           res.status(403).json({ error: "Access denied" });
           return;
         }
+      } else {
+        const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, doc.patientId);
+        if (!isAssigned) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_document_download", documentId: req.params.documentId }, req);
+          res.status(403).json({ error: "You are not assigned to this patient" });
+          return;
+        }
       }
 
       const token = crypto.randomBytes(48).toString("base64url");
@@ -528,6 +555,13 @@ router.delete(
         await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, userRole: req.user!.role, reason: "document_delete_insufficient_permissions", documentId: req.params.documentId }, req);
         res.status(403).json({ error: "Insufficient permissions" });
         return;
+      } else {
+        const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, doc.patientId);
+        if (!isAssigned) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_document_delete", documentId: req.params.documentId }, req);
+          res.status(403).json({ error: "You are not assigned to this patient" });
+          return;
+        }
       }
 
       const filePath = path.join(UPLOAD_DIR, doc.storageKey);

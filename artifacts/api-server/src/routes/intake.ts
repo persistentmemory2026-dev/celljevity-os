@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { intakeFormsTable, patientsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { requireAuth, requireSelfOrRole, auditLog, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireSelfOrRole, requireAssignedOrAdmin, auditLog, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
 
@@ -10,6 +10,7 @@ router.get(
   "/patients/:patientId/intake",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("VIEW_INTAKE", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -49,6 +50,7 @@ router.post(
   "/patients/:patientId/intake",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("CREATE_INTAKE", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -83,6 +85,7 @@ router.patch(
   "/patients/:patientId/intake",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("UPDATE_INTAKE", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -115,6 +118,7 @@ router.post(
   "/patients/:patientId/intake/complete",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("COMPLETE_INTAKE", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {

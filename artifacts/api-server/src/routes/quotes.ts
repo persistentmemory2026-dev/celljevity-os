@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { quotesTable, invoiceLineItemsTable, serviceCatalogTable, quoteStatusEnum, patientsTable } from "@workspace/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAuth, requireRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireRole, checkStaffAssignment, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
 const VALID_QUOTE_STATUSES = quoteStatusEnum.enumValues;
@@ -112,6 +112,13 @@ router.get(
           res.status(403).json({ error: "Access denied" });
           return;
         }
+      } else {
+        const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, quote.patientId);
+        if (!isAssigned) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_quote", quoteId: req.params.quoteId }, req);
+          res.status(403).json({ error: "You are not assigned to this patient" });
+          return;
+        }
       }
 
       const lineItems = await db
@@ -165,6 +172,13 @@ router.post(
         return;
       }
 
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_create_quote", patientId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
       const [quote] = await db.insert(quotesTable).values({
         invoiceNumber: generateInvoiceNumber(),
         patientId,
@@ -189,20 +203,27 @@ router.patch(
   auditLog("UPDATE_QUOTE", (req) => ({ type: "quote", id: req.params.quoteId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      const [quoteCheck] = await db
+        .select({ patientId: quotesTable.patientId, status: quotesTable.status })
+        .from(quotesTable)
+        .where(eq(quotesTable.id, req.params.quoteId))
+        .limit(1);
+
+      if (!quoteCheck) {
+        res.status(404).json({ error: "Quote not found" });
+        return;
+      }
+
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, quoteCheck.patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_quote_update", quoteId: req.params.quoteId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
       const updates: Partial<typeof quotesTable.$inferInsert> = { updatedAt: new Date() };
 
       if (req.body.status !== undefined && VALID_QUOTE_STATUSES.includes(req.body.status)) {
-        const [existing] = await db
-          .select({ status: quotesTable.status })
-          .from(quotesTable)
-          .where(eq(quotesTable.id, req.params.quoteId))
-          .limit(1);
-
-        if (!existing) {
-          res.status(404).json({ error: "Quote not found" });
-          return;
-        }
-
         const allowedTransitions: Record<string, string[]> = {
           DRAFT: ["PENDING", "CANCELLED"],
           PENDING: ["ACCEPTED", "CANCELLED"],
@@ -211,10 +232,10 @@ router.patch(
           CANCELLED: [],
         };
 
-        const allowed = allowedTransitions[existing.status] || [];
+        const allowed = allowedTransitions[quoteCheck.status] || [];
         if (!allowed.includes(req.body.status)) {
           res.status(400).json({
-            error: `Invalid status transition: ${existing.status} → ${req.body.status}. Allowed: ${allowed.join(", ") || "none"}`,
+            error: `Invalid status transition: ${quoteCheck.status} → ${req.body.status}. Allowed: ${allowed.join(", ") || "none"}`,
           });
           return;
         }
@@ -281,6 +302,13 @@ router.post(
         return;
       }
 
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, quote.patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_add_line_item", quoteId: req.params.quoteId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
       const [service] = await db
         .select()
         .from(serviceCatalogTable)
@@ -330,6 +358,24 @@ router.patch(
   auditLog("UPDATE_LINE_ITEM", (req) => ({ type: "quote", id: req.params.quoteId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      const [quoteForAuth] = await db
+        .select({ patientId: quotesTable.patientId })
+        .from(quotesTable)
+        .where(eq(quotesTable.id, req.params.quoteId))
+        .limit(1);
+
+      if (!quoteForAuth) {
+        res.status(404).json({ error: "Quote not found" });
+        return;
+      }
+
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, quoteForAuth.patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_update_line_item", quoteId: req.params.quoteId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
       const [existing] = await db
         .select()
         .from(invoiceLineItemsTable)
@@ -383,6 +429,24 @@ router.delete(
   auditLog("DELETE_LINE_ITEM", (req) => ({ type: "quote", id: req.params.quoteId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      const [quoteForAuth] = await db
+        .select({ patientId: quotesTable.patientId })
+        .from(quotesTable)
+        .where(eq(quotesTable.id, req.params.quoteId))
+        .limit(1);
+
+      if (!quoteForAuth) {
+        res.status(404).json({ error: "Quote not found" });
+        return;
+      }
+
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, quoteForAuth.patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_delete_line_item", quoteId: req.params.quoteId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
       const [deleted] = await db
         .delete(invoiceLineItemsTable)
         .where(

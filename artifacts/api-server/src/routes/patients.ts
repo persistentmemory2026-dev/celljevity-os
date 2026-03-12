@@ -9,7 +9,7 @@ import {
   invoiceLineItemsTable, auditLogsTable, leadsTable,
 } from "@workspace/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAuth, requireRole, requireSelfOrRole, auditLog, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireRole, requireSelfOrRole, requireAssignedOrAdmin, auditLog, type AuthenticatedRequest } from "../middlewares";
 import path from "path";
 import fs from "fs/promises";
 
@@ -150,6 +150,7 @@ router.get(
   "/patients/:patientId",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("VIEW_PATIENT", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -195,6 +196,7 @@ router.patch(
   "/patients/:patientId",
   requireAuth,
   requireRole("CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("UPDATE_PATIENT", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {

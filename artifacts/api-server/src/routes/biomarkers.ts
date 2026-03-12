@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { biomarkerResultsTable, biomarkerTypeEnum, biomarkerStatusEnum, patientsTable } from "@workspace/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { requireAuth, requireSelfOrRole, requireRole, requireAssignedOrAdmin, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireSelfOrRole, requireRole, requireAssignedOrAdmin, checkStaffAssignment, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
 const VALID_BIOMARKER_TYPES = biomarkerTypeEnum.enumValues;
@@ -109,6 +109,13 @@ router.get(
         return;
       }
 
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, result.patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_biomarker", biomarkerId: req.params.biomarkerId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
       if (req.user!.role === "CARE_COORDINATOR") {
         res.json({
           id: result.id,
@@ -195,6 +202,24 @@ router.patch(
   auditLog("UPDATE_BIOMARKER", (req) => ({ type: "biomarker", id: req.params.biomarkerId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      const [existing_check] = await db
+        .select({ patientId: biomarkerResultsTable.patientId })
+        .from(biomarkerResultsTable)
+        .where(eq(biomarkerResultsTable.id, req.params.biomarkerId))
+        .limit(1);
+
+      if (!existing_check) {
+        res.status(404).json({ error: "Biomarker result not found" });
+        return;
+      }
+
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, existing_check.patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_biomarker_update", biomarkerId: req.params.biomarkerId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
       const updates: Partial<typeof biomarkerResultsTable.$inferInsert> = {};
 
       if (req.body.testDate !== undefined) updates.testDate = req.body.testDate;
@@ -259,15 +284,27 @@ router.delete(
   auditLog("DELETE_BIOMARKER", (req) => ({ type: "biomarker", id: req.params.biomarkerId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const [deleted] = await db
-        .delete(biomarkerResultsTable)
+      const [biomarker] = await db
+        .select({ patientId: biomarkerResultsTable.patientId })
+        .from(biomarkerResultsTable)
         .where(eq(biomarkerResultsTable.id, req.params.biomarkerId))
-        .returning();
+        .limit(1);
 
-      if (!deleted) {
+      if (!biomarker) {
         res.status(404).json({ error: "Biomarker result not found" });
         return;
       }
+
+      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, biomarker.patientId);
+      if (!isAssigned) {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_biomarker_delete", biomarkerId: req.params.biomarkerId }, req);
+        res.status(403).json({ error: "You are not assigned to this patient" });
+        return;
+      }
+
+      await db
+        .delete(biomarkerResultsTable)
+        .where(eq(biomarkerResultsTable.id, req.params.biomarkerId));
 
       res.json({ message: "Biomarker result deleted" });
     } catch (err) {

@@ -5,6 +5,31 @@ import { logSecurityEvent } from "./audit";
 type Role = "PATIENT" | "CARE_COORDINATOR" | "MEDICAL_PROVIDER" | "SUPER_ADMIN";
 type StaffRole = "CARE_COORDINATOR" | "MEDICAL_PROVIDER";
 
+export async function checkStaffAssignment(userId: string, role: string, patientId: string): Promise<boolean> {
+  if (role === "SUPER_ADMIN") return true;
+  if (role === "PATIENT") return true;
+
+  const { db } = await import("@workspace/db");
+  const { patientsTable } = await import("@workspace/db/schema");
+  const { eq } = await import("drizzle-orm");
+
+  const [patient] = await db
+    .select({
+      assignedCoordinatorId: patientsTable.assignedCoordinatorId,
+      assignedProviderId: patientsTable.assignedProviderId,
+    })
+    .from(patientsTable)
+    .where(eq(patientsTable.id, patientId))
+    .limit(1);
+
+  if (!patient) return false;
+
+  if (role === "CARE_COORDINATOR" && patient.assignedCoordinatorId === userId) return true;
+  if (role === "MEDICAL_PROVIDER" && patient.assignedProviderId === userId) return true;
+
+  return false;
+}
+
 export function requireRole(...roles: Role[]) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {

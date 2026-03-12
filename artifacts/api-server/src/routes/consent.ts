@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { consentRecordsTable, patientsTable, consentTypeEnum } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireSelfOrRole, requireAssignedOrAdmin, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireSelfOrRole, requireAssignedOrAdmin, checkStaffAssignment, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
 const VALID_CONSENT_TYPES = consentTypeEnum.enumValues;
@@ -102,6 +102,13 @@ router.patch(
         await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, userRole: req.user!.role, reason: "consent_revoke_insufficient_permissions", consentId: req.params.consentId }, req);
         res.status(403).json({ error: "Insufficient permissions" });
         return;
+      } else {
+        const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, consent.patientId);
+        if (!isAssigned) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_consent_revoke", consentId: req.params.consentId }, req);
+          res.status(403).json({ error: "You are not assigned to this patient" });
+          return;
+        }
       }
 
       const [updated] = await db
