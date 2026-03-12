@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { documentsTable, documentTokensTable, patientsTable, documentTypeEnum, auditLogsTable } from "@workspace/db/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
-import { requireAuth, requireRole, requireSelfOrRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireRole, requireSelfOrRole, requireAssignedOrAdmin, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs/promises";
@@ -11,6 +11,7 @@ const router: IRouter = Router();
 const UPLOAD_DIR = path.resolve(process.cwd(), ".data/uploads");
 const UPLOAD_TOKEN_TTL_MS = 60 * 60 * 1000;
 const DOWNLOAD_TOKEN_TTL_MS = 15 * 60 * 1000;
+const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
 const VALID_DOC_TYPES = documentTypeEnum.enumValues;
 
 function sanitizeFileName(fileName: string): string {
@@ -41,6 +42,7 @@ router.get(
   "/patients/:patientId/documents",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("LIST_DOCUMENTS", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -194,6 +196,7 @@ router.post(
   "/patients/:patientId/documents",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("UPLOAD_DOCUMENT", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -301,8 +304,15 @@ router.put(
       const filePath = path.join(dir, path.basename(doc.storageKey));
 
       const chunks: Buffer[] = [];
+      let totalSize = 0;
       for await (const chunk of req) {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        totalSize += buf.length;
+        if (totalSize > MAX_UPLOAD_SIZE_BYTES) {
+          res.status(413).json({ error: `File exceeds maximum upload size of ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)}MB` });
+          return;
+        }
+        chunks.push(buf);
       }
       const fileBuffer = Buffer.concat(chunks);
       await fs.writeFile(filePath, fileBuffer);

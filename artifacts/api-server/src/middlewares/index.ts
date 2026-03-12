@@ -1,3 +1,3 @@
 export { requireAuth, type AuthenticatedRequest } from "./auth";
-export { requireRole, requireSelfOrRole } from "./rbac";
+export { requireRole, requireSelfOrRole, requireAssignedOrAdmin } from "./rbac";
 export { auditLog, logSecurityEvent } from "./audit";

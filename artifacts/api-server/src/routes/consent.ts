@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { consentRecordsTable, patientsTable, consentTypeEnum } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireSelfOrRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireSelfOrRole, requireAssignedOrAdmin, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
 const VALID_CONSENT_TYPES = consentTypeEnum.enumValues;
@@ -11,6 +11,7 @@ router.get(
   "/patients/:patientId/consents",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("LIST_CONSENTS", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -30,6 +31,7 @@ router.post(
   "/patients/:patientId/consents",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("GRANT_CONSENT", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {

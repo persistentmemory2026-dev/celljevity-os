@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { biomarkerResultsTable, biomarkerTypeEnum, biomarkerStatusEnum, patientsTable } from "@workspace/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { requireAuth, requireSelfOrRole, requireRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireSelfOrRole, requireRole, requireAssignedOrAdmin, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
 const VALID_BIOMARKER_TYPES = biomarkerTypeEnum.enumValues;
@@ -12,6 +12,7 @@ router.get(
   "/patients/:patientId/biomarkers",
   requireAuth,
   requireSelfOrRole("patientId", "CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("LIST_BIOMARKERS", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -135,6 +136,7 @@ router.post(
   "/patients/:patientId/biomarkers",
   requireAuth,
   requireRole("MEDICAL_PROVIDER", "SUPER_ADMIN"),
+  requireAssignedOrAdmin("patientId"),
   auditLog("ADD_BIOMARKER", (req) => ({ type: "patient", id: req.params.patientId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
