@@ -7,6 +7,7 @@ import {
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, auditLog, type AuthenticatedRequest } from "../middlewares";
+import crypto from "crypto";
 import path from "path";
 import fs from "fs/promises";
 
@@ -148,22 +149,30 @@ router.post(
       await db.delete(leadsTable).where(eq(leadsTable.convertedPatientId, patient.id));
       await db.delete(patientsTable).where(eq(patientsTable.id, patient.id));
 
+      const erasureId = crypto.randomUUID().slice(0, 8);
+
       await db.insert(auditLogsTable).values({
         userId,
         action: "GDPR_DATA_DELETED",
         targetResourceType: "patient",
         targetResourceId: patient.id,
-        details: JSON.stringify({ deletedAt: new Date().toISOString() }),
+        details: JSON.stringify({ deletedAt: new Date().toISOString(), erasureId }),
         ipAddress: req.ip ?? req.socket.remoteAddress ?? null,
       });
 
-      await db.update(usersTable).set({ isActive: false }).where(eq(usersTable.id, userId));
+      await db.update(usersTable).set({
+        email: `erased_${erasureId}@deleted.local`,
+        passwordHash: "ERASED",
+        firstName: "ERASED",
+        lastName: "ERASED",
+        isActive: false,
+      }).where(eq(usersTable.id, userId));
 
       req.session.destroy(() => {});
 
       res.json({
-        message: "All personal data has been deleted. Your account has been deactivated.",
-        deletedResources: ["patient", "documents", "intakeForms", "biomarkers", "consents", "quotes"],
+        message: "All personal data has been permanently erased in compliance with GDPR Article 17.",
+        deletedResources: ["patient", "documents", "intakeForms", "biomarkers", "consents", "quotes", "userPII"],
       });
     } catch (err) {
       next(err);

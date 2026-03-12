@@ -13,8 +13,26 @@ const UPLOAD_TOKEN_TTL_MS = 60 * 60 * 1000;
 const DOWNLOAD_TOKEN_TTL_MS = 15 * 60 * 1000;
 const VALID_DOC_TYPES = documentTypeEnum.enumValues;
 
+function sanitizeFileName(fileName: string): string {
+  const basename = path.basename(fileName);
+  const sanitized = basename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  if (!sanitized || sanitized.startsWith(".")) {
+    return `file_${crypto.randomUUID()}`;
+  }
+  return sanitized;
+}
+
+function ensurePathWithinUploadDir(filePath: string): void {
+  const resolved = path.resolve(filePath);
+  const resolvedUploadDir = path.resolve(UPLOAD_DIR);
+  if (!resolved.startsWith(resolvedUploadDir + path.sep) && resolved !== resolvedUploadDir) {
+    throw new Error("Path traversal attempt detected");
+  }
+}
+
 async function ensureUploadDir(subDir: string) {
   const dir = path.join(UPLOAD_DIR, subDir);
+  ensurePathWithinUploadDir(dir);
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }
@@ -85,8 +103,9 @@ router.post(
         return;
       }
 
+      const safeFileName = sanitizeFileName(fileName);
       const fileId = crypto.randomUUID();
-      const storageKey = `patients/${req.params.patientId}/${fileId}/${fileName}`;
+      const storageKey = `patients/${req.params.patientId}/${fileId}/${safeFileName}`;
 
       const [doc] = await db.insert(documentsTable).values({
         patientId: req.params.patientId,
@@ -325,13 +344,21 @@ router.get(
       const filePath = path.join(UPLOAD_DIR, doc.storageKey);
 
       try {
+        ensurePathWithinUploadDir(filePath);
+      } catch {
+        res.status(403).json({ error: "Invalid storage path" });
+        return;
+      }
+
+      try {
         await fs.access(filePath);
       } catch {
         res.status(404).json({ error: "File not found on disk" });
         return;
       }
 
-      res.setHeader("Content-Disposition", `attachment; filename="${doc.fileName}"`);
+      const safeDisplayName = sanitizeFileName(doc.fileName);
+      res.setHeader("Content-Disposition", `attachment; filename="${safeDisplayName}"`);
       if (doc.mimeType) {
         res.setHeader("Content-Type", doc.mimeType);
       }
