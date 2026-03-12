@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslation } from "react-i18next";
 import { Button, Input, Label, Card, CardContent } from "@/components/ui";
 import { motion } from "framer-motion";
 
 export default function Register() {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", password: "", confirmPassword: "" });
   const [errorMsg, setErrorMsg] = useState("");
   const { register, isRegistering } = useAuth();
@@ -12,7 +14,7 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      return setErrorMsg("Passwords do not match");
+      return setErrorMsg(t("auth.passwordsMismatch"));
     }
     setErrorMsg("");
     try {
@@ -22,8 +24,9 @@ export default function Register() {
         email: formData.email,
         password: formData.password
       });
-    } catch (err: any) {
-      setErrorMsg(err.message || "Registration failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Registration failed";
+      setErrorMsg(message);
     }
   };
 
@@ -38,8 +41,8 @@ export default function Register() {
       <div className="relative z-10 w-full max-w-lg px-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-display font-bold text-white mb-2">Create Account</h1>
-            <p className="text-slate-300">Begin your longevity journey with Celljevity</p>
+            <h1 className="text-3xl font-display font-bold text-white mb-2">{t("auth.register")}</h1>
+            <p className="text-slate-300">{t("auth.brandSubtitle")}</p>
           </div>
 
           <Card className="bg-white/10 backdrop-blur-2xl border-white/20 shadow-2xl">
@@ -53,7 +56,7 @@ export default function Register() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-slate-200">First Name</Label>
+                    <Label className="text-slate-200">{t("auth.firstName")}</Label>
                     <Input 
                       required 
                       value={formData.firstName}
@@ -62,7 +65,7 @@ export default function Register() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-slate-200">Last Name</Label>
+                    <Label className="text-slate-200">{t("auth.lastName")}</Label>
                     <Input 
                       required 
                       value={formData.lastName}
@@ -73,7 +76,7 @@ export default function Register() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-slate-200">Email Address</Label>
+                  <Label className="text-slate-200">{t("auth.email")}</Label>
                   <Input 
                     type="email" 
                     required 
@@ -84,7 +87,7 @@ export default function Register() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-slate-200">Password</Label>
+                  <Label className="text-slate-200">{t("auth.password")}</Label>
                   <Input 
                     type="password" 
                     required 
@@ -96,7 +99,7 @@ export default function Register() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-slate-200">Confirm Password</Label>
+                  <Label className="text-slate-200">{t("auth.confirmPassword")}</Label>
                   <Input 
                     type="password" 
                     required 
@@ -111,16 +114,16 @@ export default function Register() {
                   className="w-full bg-accent text-accent-foreground hover:bg-accent/90 py-6 text-lg rounded-xl mt-4"
                   disabled={isRegistering}
                 >
-                  {isRegistering ? "Creating Account..." : "Create Account"}
+                  {isRegistering ? t("common.loading") : t("auth.register")}
                 </Button>
               </form>
             </CardContent>
           </Card>
 
           <p className="text-center mt-8 text-slate-400">
-            Already have an account?{" "}
-            <Link href="/login">
-              <span className="text-accent hover:text-white font-medium cursor-pointer">Sign in</span>
+            {t("auth.hasAccount")}{" "}
+            <Link to="/login">
+              <span className="text-accent hover:text-white font-medium cursor-pointer">{t("auth.signInLink")}</span>
             </Link>
           </p>
         </motion.div>

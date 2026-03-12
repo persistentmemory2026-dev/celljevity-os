@@ -3,37 +3,37 @@ import { useGetMyProfile, useListBiomarkers } from "@workspace/api-client-react"
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@/components/ui";
 import { motion } from "framer-motion";
 import { Activity, ArrowRight, CheckCircle2, Circle, AlertCircle, FileText, Calendar } from "lucide-react";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 const STAGES = ["ACQUISITION", "INTAKE", "DIAGNOSTICS", "PLANNING", "TREATMENT", "FOLLOW_UP"];
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { data: profile, isLoading } = useGetMyProfile();
-  
-  // Fetch latest biomarkers for quick view
+
   const { data: biomarkersData } = useListBiomarkers(profile?.id || "", { limit: 5 }, { 
     query: { enabled: !!profile?.id } 
   });
 
-  if (isLoading || !profile) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading portal...</div>;
+  if (isLoading || !profile) return <div className="p-8 text-center text-muted-foreground animate-pulse">{t("common.loading")}</div>;
 
   const currentStageIdx = STAGES.indexOf(profile.journeyStage);
 
   return (
     <div className="space-y-8 pb-12">
       <header>
-        <h1 className="text-3xl font-display font-bold text-foreground">Welcome back, {user?.firstName}</h1>
-        <p className="text-muted-foreground mt-1">Here is the latest on your longevity journey.</p>
+        <h1 className="text-3xl font-display font-bold text-foreground">{t("patient.welcome", { name: user?.firstName })}</h1>
+        <p className="text-muted-foreground mt-1">{t("patient.journeyDescription")}</p>
       </header>
 
-      {/* Journey Timeline */}
       <Card className="border-none shadow-md bg-gradient-to-br from-white to-slate-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-accent" />
-            My Journey
+            {t("patient.myJourney")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -65,31 +65,23 @@ export default function Dashboard() {
                       "text-xs font-semibold text-center uppercase tracking-wider",
                       isCurrent ? "text-primary" : "text-muted-foreground"
                     )}>
-                      {stage.replace('_', ' ')}
+                      {t(`patient.stages.${stage}`)}
                     </span>
                   </div>
                 );
               })}
             </div>
-            
-            {/* Longevity Loop Indicator */}
-            {profile.journeyStage === "FOLLOW_UP" && (
-              <div className="absolute -bottom-6 right-8 flex items-center gap-2 text-accent text-sm font-medium animate-bounce">
-                <ArrowRight className="w-4 h-4" /> Ready for next cycle
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Action Items */}
         <div className="lg:col-span-1 space-y-6">
           <Card className="border-destructive/20 shadow-md">
             <CardHeader className="bg-destructive/5 pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <AlertCircle className="w-5 h-5 text-destructive" />
-                Action Items
+                {t("patient.actionItems")}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
@@ -97,10 +89,10 @@ export default function Dashboard() {
                 <div className="flex items-start gap-3 p-3 rounded-xl bg-secondary/50">
                   <FileText className="w-5 h-5 text-primary mt-0.5" />
                   <div>
-                    <h4 className="font-medium text-sm">Complete Intake Form</h4>
-                    <p className="text-xs text-muted-foreground mt-1">Required before diagnostics can begin.</p>
-                    <Link href="/intake">
-                      <Button variant="link" className="px-0 h-auto text-xs mt-2">Start Wizard &rarr;</Button>
+                    <h4 className="font-medium text-sm">{t("patient.completeIntake")}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">{t("patient.intakeRequired")}</p>
+                    <Link to="/intake">
+                      <Button variant="link" className="px-0 h-auto text-xs mt-2">{t("patient.startWizard")}</Button>
                     </Link>
                   </div>
                 </div>
@@ -108,38 +100,36 @@ export default function Dashboard() {
               <div className="flex items-start gap-3 p-3 rounded-xl bg-secondary/50">
                 <Calendar className="w-5 h-5 text-primary mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-sm">Initial Consultation</h4>
-                  <p className="text-xs text-muted-foreground mt-1">Pending scheduling with Care Coordinator.</p>
+                  <h4 className="font-medium text-sm">{t("patient.initialConsultation")}</h4>
+                  <p className="text-xs text-muted-foreground mt-1">{t("patient.pendingScheduling")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick View Biomarkers */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-display font-semibold">Key Biomarkers</h3>
-            <Link href="/biomarkers">
-              <Button variant="outline" size="sm">View All</Button>
+            <h3 className="text-xl font-display font-semibold">{t("clinical.keyBiomarkers")}</h3>
+            <Link to="/biomarkers">
+              <Button variant="outline" size="sm">{t("patient.viewAll")}</Button>
             </Link>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Biomarker quick-view cards */}
             <motion.div whileHover={{ y: -4 }}>
               <Card className="shadow-sm hover:shadow-md transition-all">
                 <CardContent className="p-6 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Biological Age</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t("patient.biologicalAge")}</p>
                     <div className="flex items-baseline gap-2 mt-1">
                       <span className="text-3xl font-display font-bold">42</span>
                       <span className="text-sm text-muted-foreground">years</span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <Badge variant="success" className="mb-2">OPTIMAL</Badge>
-                    <span className="text-xs text-emerald-600 font-medium">↓ -2.5 yrs vs chrono</span>
+                    <Badge variant="success" className="mb-2">{t("biomarkers.optimal")}</Badge>
+                    <span className="text-xs text-emerald-600 font-medium">-2.5 yrs vs chrono</span>
                   </div>
                 </CardContent>
               </Card>
@@ -149,15 +139,15 @@ export default function Dashboard() {
               <Card className="shadow-sm hover:shadow-md transition-all">
                 <CardContent className="p-6 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Telomere Length</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t("patient.telomereLength")}</p>
                     <div className="flex items-baseline gap-2 mt-1">
                       <span className="text-3xl font-display font-bold">7.2</span>
                       <span className="text-sm text-muted-foreground">kb</span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <Badge variant="warning" className="mb-2">WARNING</Badge>
-                    <span className="text-xs text-amber-600 font-medium">↓ -0.1 since last</span>
+                    <Badge variant="warning" className="mb-2">{t("biomarkers.warning")}</Badge>
+                    <span className="text-xs text-amber-600 font-medium">-0.1 {t("biomarkers.deltaFromPrevious")}</span>
                   </div>
                 </CardContent>
               </Card>

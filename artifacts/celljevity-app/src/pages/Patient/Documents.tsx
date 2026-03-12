@@ -1,10 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { 
   useGetMyProfile, 
   useListDocuments, 
   useUploadDocument, 
   useUploadDocumentContent, 
-  useDownloadDocument,
   DocumentType
 } from "@workspace/api-client-react";
 import { useDropzone } from "react-dropzone";
@@ -16,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const TYPE_ORDER: DocumentType[] = ["LAB_RESULT", "DOCTOR_LETTER", "IMAGING", "BIOPSY_REPORT", "SIGNED_CONSENT", "INVOICE_PDF", "OTHER"];
 
 export default function Documents() {
   const { t } = useTranslation();
@@ -32,6 +33,31 @@ export default function Documents() {
   const uploadDocMetadata = useUploadDocument();
   const uploadDocContent = useUploadDocumentContent();
   const { toast } = useToast();
+
+  const groupedDocuments = useMemo(() => {
+    const docs = documentsData?.data;
+    if (!docs || docs.length === 0) return [];
+
+    const groups = new Map<string, typeof docs>();
+    for (const doc of docs) {
+      const key = doc.documentType;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(doc);
+    }
+
+    for (const [, groupDocs] of groups) {
+      groupDocs.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+    }
+
+    return TYPE_ORDER
+      .filter(type => groups.has(type))
+      .map(type => ({ type, docs: groups.get(type)! }))
+      .concat(
+        Array.from(groups.entries())
+          .filter(([type]) => !TYPE_ORDER.includes(type as DocumentType))
+          .map(([type, docs]) => ({ type: type as DocumentType, docs }))
+      );
+  }, [documentsData]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -111,9 +137,13 @@ export default function Documents() {
       case "DOCTOR_LETTER": return "bg-purple-100 text-purple-800";
       case "SIGNED_CONSENT": return "bg-emerald-100 text-emerald-800";
       case "INVOICE_PDF": return "bg-amber-100 text-amber-800";
+      case "IMAGING": return "bg-sky-100 text-sky-800";
+      case "BIOPSY_REPORT": return "bg-rose-100 text-rose-800";
       default: return "bg-slate-100 text-slate-800";
     }
   };
+
+  const totalDocs = documentsData?.data?.length ?? 0;
 
   return (
     <div className="space-y-8 pb-12">
@@ -182,58 +212,58 @@ export default function Documents() {
         </Dialog>
       </header>
 
-      <Card className="shadow-md">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left rtl:text-right">
-            <thead className="text-xs text-muted-foreground uppercase bg-secondary/50">
-              <tr>
-                <th className="px-6 py-4 font-semibold rounded-tl-xl rtl:rounded-tr-xl rtl:rounded-tl-none">{t("documents.fileName")}</th>
-                <th className="px-6 py-4 font-semibold">{t("documents.type")}</th>
-                <th className="px-6 py-4 font-semibold">{t("documents.size")}</th>
-                <th className="px-6 py-4 font-semibold">{t("documents.dateUploaded")}</th>
-                <th className="px-6 py-4 font-semibold text-right rtl:text-left rounded-tr-xl rtl:rounded-tl-xl rtl:rounded-tr-none">{t("documents.action")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {isLoading ? (
-                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground animate-pulse">{t("common.loading")}</td></tr>
-              ) : documentsData?.data?.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-12 text-center">
-                    <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">{t("documents.emptyVault")}</p>
-                  </td>
-                </tr>
-              ) : (
-                documentsData?.data?.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-secondary/20 transition-colors group">
-                    <td className="px-6 py-4 font-medium flex items-center gap-3">
-                      <FileText className="w-4 h-4 text-muted-foreground" />
-                      {doc.fileName}
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant="outline" className={cn("border-transparent font-medium", getTypeColor(doc.documentType))}>
-                        {doc.documentType.replace('_', ' ')}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground font-mono">
-                      {doc.fileSize ? `${(doc.fileSize / 1024 / 1024).toFixed(2)} MB` : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {format(new Date(doc.uploadDate), 'MMM d, yyyy')}
-                    </td>
-                    <td className="px-6 py-4 text-right rtl:text-left">
-                      <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.id, doc.fileName)} title="Download">
-                        <Download className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </Button>
-                    </td>
+      {isLoading ? (
+        <Card className="shadow-md p-8 text-center text-muted-foreground animate-pulse">{t("common.loading")}</Card>
+      ) : totalDocs === 0 ? (
+        <Card className="shadow-md p-12 text-center">
+          <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-muted-foreground">{t("documents.emptyVault")}</p>
+        </Card>
+      ) : (
+        groupedDocuments.map((group) => (
+          <Card key={group.type} className="shadow-md">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Badge variant="outline" className={cn("border-transparent font-medium", getTypeColor(group.type))}>
+                {t(`documents.types.${group.type}` as const) || group.type.replace(/_/g, ' ')}
+              </Badge>
+              <span className="text-xs text-muted-foreground">({group.docs.length})</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left rtl:text-right">
+                <thead className="text-xs text-muted-foreground uppercase bg-secondary/50">
+                  <tr>
+                    <th className="px-6 py-3 font-semibold">{t("documents.fileName")}</th>
+                    <th className="px-6 py-3 font-semibold">{t("documents.size")}</th>
+                    <th className="px-6 py-3 font-semibold">{t("documents.dateUploaded")}</th>
+                    <th className="px-6 py-3 font-semibold text-right rtl:text-left">{t("documents.action")}</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {group.docs.map((doc) => (
+                    <tr key={doc.id} className="hover:bg-secondary/20 transition-colors group">
+                      <td className="px-6 py-4 font-medium flex items-center gap-3">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                        {doc.fileName}
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground font-mono">
+                        {doc.fileSize ? `${(doc.fileSize / 1024 / 1024).toFixed(2)} MB` : '-'}
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {format(new Date(doc.uploadDate), 'MMM d, yyyy')}
+                      </td>
+                      <td className="px-6 py-4 text-right rtl:text-left">
+                        <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.id, doc.fileName)} title="Download">
+                          <Download className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ))
+      )}
     </div>
   );
 }

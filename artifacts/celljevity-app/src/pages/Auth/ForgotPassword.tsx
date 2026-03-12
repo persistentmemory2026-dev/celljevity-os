@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button, Input, Label, Card, CardContent } from "@/components/ui";
 import { motion } from "framer-motion";
 
 export default function ForgotPassword() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -26,8 +28,9 @@ export default function ForgotPassword() {
       }
       
       setStatus("success");
-    } catch (err: any) {
-      setErrorMsg(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred";
+      setErrorMsg(message);
       setStatus("error");
     }
   };
@@ -39,8 +42,8 @@ export default function ForgotPassword() {
       <div className="relative z-10 w-full max-w-md px-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-display font-bold text-white mb-2">Reset Password</h1>
-            <p className="text-slate-300">We'll send you a link to reset your password</p>
+            <h1 className="text-3xl font-display font-bold text-white mb-2">{t("auth.resetPassword")}</h1>
+            <p className="text-slate-300">{t("auth.resetEmailSent").split('.')[0]}</p>
           </div>
 
           <Card className="bg-white/10 backdrop-blur-2xl border-white/20 shadow-2xl">
@@ -48,10 +51,10 @@ export default function ForgotPassword() {
               {status === "success" ? (
                 <div className="text-center space-y-4">
                   <div className="p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-xl text-emerald-200">
-                    If an account exists for {email}, a password reset link has been sent.
+                    {t("auth.resetEmailSent")}
                   </div>
-                  <Link href="/login">
-                    <Button className="w-full bg-white/20 hover:bg-white/30 text-white">Return to Login</Button>
+                  <Link to="/login">
+                    <Button className="w-full bg-white/20 hover:bg-white/30 text-white">{t("auth.backToLogin")}</Button>
                   </Link>
                 </div>
               ) : (
@@ -61,7 +64,7 @@ export default function ForgotPassword() {
                   )}
                   
                   <div className="space-y-2">
-                    <Label className="text-slate-200">Email Address</Label>
+                    <Label className="text-slate-200">{t("auth.email")}</Label>
                     <Input 
                       type="email" required 
                       value={email} onChange={e => setEmail(e.target.value)}
@@ -70,7 +73,7 @@ export default function ForgotPassword() {
                   </div>
 
                   <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90 py-6 text-lg rounded-xl shadow-lg shadow-accent/25" disabled={status === "loading"}>
-                    {status === "loading" ? "Sending..." : "Send Reset Link"}
+                    {status === "loading" ? t("common.loading") : t("auth.sendResetLink")}
                   </Button>
                 </form>
               )}
@@ -78,7 +81,7 @@ export default function ForgotPassword() {
           </Card>
 
           <p className="text-center mt-8 text-slate-400">
-            Remember your password? <Link href="/login"><span className="text-accent hover:text-white font-medium cursor-pointer transition-colors">Sign in</span></Link>
+            {t("auth.backToLogin")}? <Link to="/login"><span className="text-accent hover:text-white font-medium cursor-pointer transition-colors">{t("auth.signInLink")}</span></Link>
           </p>
         </motion.div>
       </div>

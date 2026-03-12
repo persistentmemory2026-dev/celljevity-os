@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from "@/components/ui";
 import { getCurrentUser } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 
 const TIMEOUT_MINUTES = 30;
 const WARNING_MINUTES = 2;
@@ -9,10 +11,20 @@ const TIMEOUT_MS = TIMEOUT_MINUTES * 60 * 1000;
 const WARNING_MS = WARNING_MINUTES * 60 * 1000;
 
 export function SessionTimeoutWarning() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
+  const { toast } = useToast();
   const [showWarning, setShowWarning] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleInactivityLogout = useCallback(() => {
+    toast({
+      title: t("session.loggedOutMessage"),
+      variant: "destructive",
+    });
+    logout();
+  }, [logout, toast, t]);
 
   const resetTimers = useCallback(() => {
     if (!user) return;
@@ -22,16 +34,14 @@ export function SessionTimeoutWarning() {
     
     setShowWarning(false);
 
-    // Set warning timer
     warningRef.current = setTimeout(() => {
       setShowWarning(true);
     }, TIMEOUT_MS - WARNING_MS);
 
-    // Set auto-logout timer
     timeoutRef.current = setTimeout(() => {
-      logout();
+      handleInactivityLogout();
     }, TIMEOUT_MS);
-  }, [user, logout]);
+  }, [user, handleInactivityLogout]);
 
   useEffect(() => {
     if (user) {
@@ -56,10 +66,9 @@ export function SessionTimeoutWarning() {
 
   const handleStayLoggedIn = async () => {
     try {
-      // Hit the API to refresh cookie/session
       await getCurrentUser();
       resetTimers();
-    } catch (e) {
+    } catch {
       logout();
     }
   };
@@ -70,14 +79,14 @@ export function SessionTimeoutWarning() {
     <Dialog open={showWarning} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-destructive">Session Expiring Soon</DialogTitle>
+          <DialogTitle className="text-destructive">{t("session.timeoutTitle")}</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          For your security, you will be automatically logged out in 2 minutes due to inactivity. Do you want to stay logged in?
+          {t("session.timeoutMessage", { minutes: WARNING_MINUTES })}
         </p>
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={() => logout()}>Log Out Now</Button>
-          <Button onClick={handleStayLoggedIn}>Stay Logged In</Button>
+          <Button variant="outline" onClick={() => handleInactivityLogout()}>{t("auth.signOut")}</Button>
+          <Button onClick={handleStayLoggedIn}>{t("session.stayLoggedIn")}</Button>
         </div>
       </DialogContent>
     </Dialog>

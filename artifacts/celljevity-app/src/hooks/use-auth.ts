@@ -1,11 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser, login, logout, register } from "@workspace/api-client-react";
 import type { LoginRequest, RegisterRequest, UserProfile } from "@workspace/api-client-react";
-import { useLocation } from "wouter";
+import { useNavigate } from "react-router-dom";
 
 export function useAuth() {
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
 
   const { data: user, isLoading, error } = useQuery<UserProfile>({
     queryKey: ["/api/auth/me"],
@@ -19,13 +19,12 @@ export function useAuth() {
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/auth/me"], data);
       
-      // Redirect based on role
       switch (data.role) {
-        case "PATIENT": setLocation("/dashboard"); break;
-        case "CARE_COORDINATOR": setLocation("/crm"); break;
-        case "MEDICAL_PROVIDER": setLocation("/clinical"); break;
-        case "SUPER_ADMIN": setLocation("/admin"); break;
-        default: setLocation("/");
+        case "PATIENT": navigate("/dashboard"); break;
+        case "CARE_COORDINATOR": navigate("/crm"); break;
+        case "MEDICAL_PROVIDER": navigate("/clinical"); break;
+        case "SUPER_ADMIN": navigate("/admin"); break;
+        default: navigate("/");
       }
     },
   });
@@ -34,7 +33,7 @@ export function useAuth() {
     mutationFn: (data: RegisterRequest) => register(data),
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/auth/me"], data);
-      setLocation("/dashboard");
+      navigate("/dashboard");
     },
   });
 
@@ -43,7 +42,7 @@ export function useAuth() {
     onSuccess: () => {
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
-      setLocation("/login");
+      navigate("/login");
     },
   });
 

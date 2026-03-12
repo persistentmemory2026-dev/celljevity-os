@@ -1,45 +1,113 @@
-import { useAuth } from "@/hooks/use-auth";
+import { useMemo } from "react";
 import { useGetMyProfile, useListBiomarkers } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell } from "recharts";
 import { format } from "date-fns";
+import { useTranslation } from "react-i18next";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const mockAgeData = [
   { date: '2023-01', biological: 45, chronological: 45 },
-  { date: '2023-06', biological: 44, chronological: 45.5 },
+  { date: '2023-06', biological: 44, chronological: 45.5, treatment: 'Telomere Therapy Start' },
   { date: '2024-01', biological: 42, chronological: 46 },
+  { date: '2024-06', biological: 41, chronological: 46.5, treatment: 'NK Cell Infusion' },
 ];
 
+const mockTelomereData = [
+  { d: 'Q1 2023', v: 6.8 },
+  { d: 'Q2 2023', v: 7.0, treatment: 'Telomere Therapy' },
+  { d: 'Q3 2023', v: 7.2 },
+  { d: 'Q4 2023', v: 7.1 },
+  { d: 'Q1 2024', v: 7.4 },
+];
+
+const mockNkCellData = [
+  { name: 'CD56bright', current: 180, baseline: 120 },
+  { name: 'CD56dim', current: 350, baseline: 300 },
+  { name: 'NKT', current: 85, baseline: 60 },
+];
+
+interface TreatmentDotProps {
+  cx?: number;
+  cy?: number;
+  payload?: { treatment?: string };
+}
+
+function TreatmentDot({ cx, cy, payload }: TreatmentDotProps) {
+  if (!payload?.treatment || cx === undefined || cy === undefined) return null;
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={8} fill="#f59e0b" stroke="#fff" strokeWidth={2} />
+      <text x={cx} y={cy - 14} textAnchor="middle" fill="#f59e0b" fontSize={10} fontWeight="bold">Tx</text>
+    </g>
+  );
+}
+
 export default function Biomarkers() {
+  const { t } = useTranslation();
   const { data: profile } = useGetMyProfile();
   const { data: biomarkersList, isLoading } = useListBiomarkers(profile?.id || "", {}, {
     query: { enabled: !!profile?.id }
   });
 
+  const biomarkerRows = useMemo(() => {
+    const data = biomarkersList?.data;
+    if (!data || data.length === 0) return [];
+
+    const grouped = new Map<string, typeof data>();
+    for (const b of data) {
+      const key = b.biomarkerType;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(b);
+    }
+
+    return Array.from(grouped.entries()).map(([type, readings]) => {
+      const sorted = [...readings].sort((a, b) => new Date(b.testDate).getTime() - new Date(a.testDate).getTime());
+      const latest = sorted[0];
+      const previous = sorted.length > 1 ? sorted[1] : null;
+      const delta = previous && latest.valueNumeric != null && previous.valueNumeric != null
+        ? latest.valueNumeric - previous.valueNumeric
+        : null;
+      const isBaseline = sorted.length === 1;
+
+      const sparkData = [...sorted].reverse().slice(-6).map(r => ({
+        v: r.valueNumeric ?? 0,
+        d: format(new Date(r.testDate), 'MMM yy'),
+      }));
+
+      return { type, latest, delta, isBaseline, sparkData };
+    });
+  }, [biomarkersList]);
+
   return (
     <div className="space-y-8 pb-12">
       <header>
-        <h1 className="text-3xl font-display font-bold">Biomarker Trends</h1>
-        <p className="text-muted-foreground mt-1">Track your biological performance over time.</p>
+        <h1 className="text-3xl font-display font-bold">{t("biomarkers.title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("biomarkers.description")}</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Biological Age Chart */}
         <Card className="shadow-md">
           <CardHeader>
-            <CardTitle>Biological vs Chronological Age</CardTitle>
+            <CardTitle>{t("biomarkers.biologicalVsChronological")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={mockAgeData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="date" tick={{fontSize: 12}} tickLine={false} axisLine={false} />
-                  <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} tickLine={false} axisLine={false} />
-                  <Tooltip 
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <Tooltip
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number, name: string) => [value, name]}
+                    labelFormatter={(label: string) => {
+                      const point = mockAgeData.find(d => d.date === label);
+                      return point?.treatment ? `${label} — ${point.treatment}` : label;
+                    }}
                   />
-                  <Line type="monotone" dataKey="biological" stroke="#14B8A6" strokeWidth={3} dot={{r: 4}} name="Biological Age" />
+                  <Line type="monotone" dataKey="biological" stroke="#14B8A6" strokeWidth={3} dot={<TreatmentDot />} name="Biological Age" />
                   <Line type="step" dataKey="chronological" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Chronological Age" />
                 </LineChart>
               </ResponsiveContainer>
@@ -47,66 +115,132 @@ export default function Biomarkers() {
           </CardContent>
         </Card>
 
-        {/* Telomere Chart */}
         <Card className="shadow-md">
           <CardHeader>
-            <CardTitle>Telomere Length (kb)</CardTitle>
+            <CardTitle>{t("biomarkers.telomereLength")}</CardTitle>
           </CardHeader>
           <CardContent>
-             <div className="h-[300px] w-full mt-4 relative">
-                {/* Background color zones */}
-                <div className="absolute inset-0 z-0 flex flex-col opacity-10">
-                  <div className="flex-1 bg-green-500"></div>
-                  <div className="flex-1 bg-yellow-500"></div>
-                  <div className="flex-1 bg-orange-500"></div>
-                  <div className="flex-1 bg-red-500"></div>
-                </div>
-                <div className="relative z-10 h-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={[{d:'Q1', v:6.8}, {d:'Q2', v:7.0}, {d:'Q3', v:7.2}]} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                      <XAxis dataKey="d" tick={{fontSize: 12}} />
-                      <YAxis domain={[5, 9]} tick={{fontSize: 12}} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="v" stroke="#0f172a" strokeWidth={3} dot={{fill: '#0f172a', r: 5}} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-             </div>
+            <div className="h-[300px] w-full mt-4 relative">
+              <div className="absolute inset-0 z-0 flex flex-col opacity-10">
+                <div className="flex-1 bg-green-500" />
+                <div className="flex-1 bg-yellow-500" />
+                <div className="flex-1 bg-orange-500" />
+                <div className="flex-1 bg-red-500" />
+              </div>
+              <div className="relative z-10 h-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={mockTelomereData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="d" tick={{ fontSize: 12 }} />
+                    <YAxis domain={[5, 9]} tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      labelFormatter={(label: string) => {
+                        const point = mockTelomereData.find(d => d.d === label);
+                        return point?.treatment ? `${label} — ${point.treatment}` : label;
+                      }}
+                    />
+                    <ReferenceLine y={7.0} stroke="#22c55e" strokeDasharray="3 3" label={{ value: t("biomarkers.optimal"), position: "right", fill: "#22c55e", fontSize: 11 }} />
+                    <Line type="monotone" dataKey="v" stroke="#0f172a" strokeWidth={3} dot={<TreatmentDot />} name="kb" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Lab Overview Table */}
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Lab Overview</CardTitle>
+          <CardTitle>{t("biomarkers.nkCellComposition")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={mockNkCellData} margin={{ top: 10, right: 30, bottom: 10, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                <Bar dataKey="baseline" name="Baseline" radius={[4, 4, 0, 0]} fill="#94a3b8" />
+                <Bar dataKey="current" name="Current" radius={[4, 4, 0, 0]}>
+                  {mockNkCellData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.current > entry.baseline ? "#14B8A6" : "#f43f5e"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle>{t("biomarkers.labOverview")}</CardTitle>
         </CardHeader>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-sm text-left rtl:text-right">
             <thead className="text-xs text-muted-foreground uppercase bg-secondary/50">
               <tr>
-                <th className="px-6 py-4 rounded-tl-xl">Biomarker</th>
-                <th className="px-6 py-4">Latest Value</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 rounded-tr-xl">Date</th>
+                <th className="px-6 py-4 rounded-tl-xl rtl:rounded-tr-xl rtl:rounded-tl-none">{t("common.name")}</th>
+                <th className="px-6 py-4">{t("biomarkers.labOverview")}</th>
+                <th className="px-6 py-4">{t("common.status")}</th>
+                <th className="px-6 py-4">{t("biomarkers.deltaFromPrevious")}</th>
+                <th className="px-6 py-4 rounded-tr-xl rtl:rounded-tl-xl rtl:rounded-tr-none">{t("common.date")}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">Loading labs...</td></tr>
-              ) : biomarkersList?.data?.length === 0 ? (
-                <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">No biomarker results available yet.</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">{t("common.loading")}</td></tr>
+              ) : biomarkerRows.length === 0 ? (
+                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">{t("common.noData")}</td></tr>
               ) : (
-                biomarkersList?.data?.map((b) => (
-                  <tr key={b.id} className="border-b last:border-0 hover:bg-secondary/20 transition-colors">
-                    <td className="px-6 py-4 font-medium">{b.biomarkerType.replace(/_/g, ' ')}</td>
-                    <td className="px-6 py-4 font-bold font-mono">{b.valueNumeric} <span className="text-muted-foreground text-xs font-sans">{b.unit}</span></td>
+                biomarkerRows.map((row) => (
+                  <tr key={row.type} className="hover:bg-secondary/20 transition-colors">
                     <td className="px-6 py-4">
-                      <Badge variant={b.statusFlag === 'OPTIMAL' ? 'success' : b.statusFlag === 'WARNING' ? 'warning' : b.statusFlag === 'CRITICAL' ? 'destructive' : 'default'}>
-                        {b.statusFlag}
+                      <div className="flex items-center gap-3">
+                        <div className="w-20 h-8">
+                          {row.sparkData.length > 1 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={row.sparkData}>
+                                <Line type="monotone" dataKey="v" stroke="#14B8A6" strokeWidth={1.5} dot={false} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Minus className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <span className="font-medium">{row.type.replace(/_/g, ' ')}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-bold font-mono">
+                      {row.latest.valueNumeric} <span className="text-muted-foreground text-xs font-sans">{row.latest.unit}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant={row.latest.statusFlag === 'OPTIMAL' ? 'success' : row.latest.statusFlag === 'WARNING' ? 'warning' : row.latest.statusFlag === 'CRITICAL' ? 'destructive' : 'default'}>
+                        {row.latest.statusFlag === 'OPTIMAL' ? t("biomarkers.optimal") :
+                         row.latest.statusFlag === 'NORMAL' ? t("biomarkers.normal") :
+                         row.latest.statusFlag === 'WARNING' ? t("biomarkers.warning") :
+                         row.latest.statusFlag === 'CRITICAL' ? t("biomarkers.critical") : row.latest.statusFlag}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-muted-foreground">{format(new Date(b.testDate), 'MMM d, yyyy')}</td>
+                    <td className="px-6 py-4">
+                      {row.isBaseline ? (
+                        <span className="text-xs text-muted-foreground italic">{t("biomarkers.baselineNote")}</span>
+                      ) : row.delta !== null ? (
+                        <span className={cn("flex items-center gap-1 text-sm font-medium",
+                          row.delta > 0 ? "text-emerald-600" : row.delta < 0 ? "text-red-500" : "text-muted-foreground"
+                        )}>
+                          {row.delta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : row.delta < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+                          {row.delta > 0 ? '+' : ''}{row.delta.toFixed(2)} {t("biomarkers.deltaFromPrevious")}
+                        </span>
+                      ) : (
+                        <Minus className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground">{format(new Date(row.latest.testDate), 'MMM d, yyyy')}</td>
                   </tr>
                 ))
               )}

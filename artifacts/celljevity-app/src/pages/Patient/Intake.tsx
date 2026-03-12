@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { useDropzone } from "react-dropzone";
 import { CheckCircle2, ArrowRight, ArrowLeft, UploadCloud, X, FileText } from "lucide-react";
-import { useLocation } from "wouter";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface ProfileData {
@@ -48,7 +48,7 @@ export default function Intake() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
 
   const createIntake = useCreateIntakeForm();
   const updateIntake = useUpdateIntakeForm();
@@ -206,7 +206,7 @@ export default function Intake() {
         <CheckCircle2 className="w-20 h-20 text-emerald-500 mx-auto" />
         <h1 className="text-3xl font-display font-bold">{t("intake.completeTitle")}</h1>
         <p className="text-muted-foreground">{t("intake.completeDesc")}</p>
-        <Button onClick={() => setLocation("/dashboard")}>{t("intake.returnToDashboard")}</Button>
+        <Button onClick={() => navigate("/dashboard")}>{t("intake.returnToDashboard")}</Button>
       </div>
     );
   }

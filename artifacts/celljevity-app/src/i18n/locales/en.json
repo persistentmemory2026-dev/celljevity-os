@@ -81,8 +81,9 @@
     "loggedOutMessage": "You were logged out due to inactivity"
   },
   "patient": {
+    "welcome": "Welcome back, {{name}}",
     "myJourney": "My Journey",
-    "journeyDescription": "Your personalized longevity path",
+    "journeyDescription": "Here is the latest on your longevity journey.",
     "currentStage": "Current Stage",
     "actionItems": "Action Items",
     "upcomingAppointments": "Upcoming",
@@ -92,6 +93,12 @@
     "telomereLength": "Telomere Length",
     "nkCellCount": "NK Cell Count",
     "cycle": "Cycle {{number}}",
+    "completeIntake": "Complete Intake Form",
+    "intakeRequired": "Required before diagnostics can begin.",
+    "startWizard": "Start Wizard →",
+    "viewAll": "View All",
+    "initialConsultation": "Initial Consultation",
+    "pendingScheduling": "Pending scheduling with Care Coordinator.",
     "stages": {
       "ACQUISITION": "Acquisition",
       "INTAKE": "Intake",
@@ -266,12 +273,19 @@
     "filterByPatient": "Filter by Patient",
     "allPatients": "All Patients",
     "manage": "Manage",
+    "quoteInvoice": "Quote / Invoice",
+    "amount": "Amount",
     "quoteCreated": "Quote created",
     "quoteCreatedDesc": "You can now add line items.",
     "itemAdded": "Item added",
     "statusUpdated": "Status updated",
     "creationFailed": "Creation failed",
-    "backToQuotes": "Back to Quotes"
+    "backToQuotes": "Back to Quotes",
+    "pdfSubtitle": "Longevity & Precision Medicine",
+    "pdfQuote": "QUOTE",
+    "pdfInvoice": "INVOICE",
+    "pdfBillTo": "Bill To",
+    "noServices": "No services in this category."
   },
   "reports": {
     "title": "Reports Dashboard",
@@ -299,17 +313,19 @@
     "backToList": "Back to List"
   },
   "admin": {
+    "quickManagement": "Quick Management",
+    "recentActivity": "Recent Activity",
     "dashboard": {
       "title": "Admin Dashboard",
-      "description": "System overview and management.",
+      "description": "Platform overview and system management.",
       "totalUsers": "Total Users",
       "activePatients": "Active Patients",
       "pendingIntakes": "Pending Intakes",
-      "services": "Services"
+      "services": "Active Services"
     },
     "users": {
       "title": "User Management",
-      "description": "Create, edit, and manage user accounts.",
+      "description": "Manage staff and system access.",
       "createUser": "Create User",
       "searchPlaceholder": "Search name or email...",
       "role": "Role",
@@ -319,7 +335,8 @@
       "newPasswordPlaceholder": "Leave blank to keep current",
       "userCreated": "User Created",
       "userUpdated": "User Updated",
-      "allRoles": "All Roles"
+      "allRoles": "All Roles",
+      "adminWarning": "Warning: Super Admin changes require care."
     },
     "services": {
       "title": "Service Catalog",

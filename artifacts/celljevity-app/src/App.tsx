@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -38,14 +38,14 @@ function getRoleDashboard(role: string) {
   }
 }
 
-function ProtectedRoute({ component: Component, allowedRoles }: { component: any, allowedRoles?: string[] }) {
+function ProtectedRoute({ component: Component, allowedRoles }: { component: React.ComponentType, allowedRoles?: string[] }) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
-  if (!user) return <Redirect to="/login" />;
+  if (!user) return <Navigate to="/login" replace />;
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Redirect to={getRoleDashboard(user.role)} />;
+    return <Navigate to={getRoleDashboard(user.role)} replace />;
   }
 
   return (
@@ -58,66 +58,38 @@ function ProtectedRoute({ component: Component, allowedRoles }: { component: any
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
-  return <Redirect to={user ? getRoleDashboard(user.role) : "/login"} />;
+  return <Navigate to={user ? getRoleDashboard(user.role) : "/login"} replace />;
 }
 
-function Router() {
+function AppRoutes() {
   return (
-    <Switch>
-      <Route path="/">{() => <HomeRedirect />}</Route>
-      <Route path="/login" component={Login} />
-      <Route path="/register" component={Register} />
-      <Route path="/forgot-password" component={ForgotPassword} />
-      <Route path="/reset-password" component={ResetPassword} />
+    <Routes>
+      <Route path="/" element={<HomeRedirect />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
-      <Route path="/dashboard">
-        {() => <ProtectedRoute component={PatientDashboard} allowedRoles={["PATIENT"]} />}
-      </Route>
-      <Route path="/biomarkers">
-        {() => <ProtectedRoute component={PatientBiomarkers} allowedRoles={["PATIENT"]} />}
-      </Route>
-      <Route path="/documents">
-        {() => <ProtectedRoute component={PatientDocuments} allowedRoles={["PATIENT"]} />}
-      </Route>
-      <Route path="/intake">
-        {() => <ProtectedRoute component={PatientIntake} allowedRoles={["PATIENT"]} />}
-      </Route>
-      <Route path="/consent">
-        {() => <ProtectedRoute component={PatientConsent} allowedRoles={["PATIENT"]} />}
-      </Route>
+      <Route path="/dashboard" element={<ProtectedRoute component={PatientDashboard} allowedRoles={["PATIENT"]} />} />
+      <Route path="/biomarkers" element={<ProtectedRoute component={PatientBiomarkers} allowedRoles={["PATIENT"]} />} />
+      <Route path="/documents" element={<ProtectedRoute component={PatientDocuments} allowedRoles={["PATIENT"]} />} />
+      <Route path="/intake" element={<ProtectedRoute component={PatientIntake} allowedRoles={["PATIENT"]} />} />
+      <Route path="/consent" element={<ProtectedRoute component={PatientConsent} allowedRoles={["PATIENT"]} />} />
 
-      <Route path="/crm">
-        {() => <ProtectedRoute component={CoordinatorCRM} allowedRoles={["CARE_COORDINATOR", "SUPER_ADMIN"]} />}
-      </Route>
-      <Route path="/leads">
-        {() => <ProtectedRoute component={CoordinatorLeads} allowedRoles={["CARE_COORDINATOR", "SUPER_ADMIN"]} />}
-      </Route>
-      <Route path="/quotes">
-        {() => <ProtectedRoute component={CoordinatorQuotes} allowedRoles={["CARE_COORDINATOR", "SUPER_ADMIN"]} />}
-      </Route>
-      <Route path="/reports">
-        {() => <ProtectedRoute component={CoordinatorReports} allowedRoles={["CARE_COORDINATOR", "SUPER_ADMIN"]} />}
-      </Route>
+      <Route path="/crm" element={<ProtectedRoute component={CoordinatorCRM} allowedRoles={["CARE_COORDINATOR", "SUPER_ADMIN"]} />} />
+      <Route path="/leads" element={<ProtectedRoute component={CoordinatorLeads} allowedRoles={["CARE_COORDINATOR", "SUPER_ADMIN"]} />} />
+      <Route path="/quotes" element={<ProtectedRoute component={CoordinatorQuotes} allowedRoles={["CARE_COORDINATOR", "SUPER_ADMIN"]} />} />
+      <Route path="/reports" element={<ProtectedRoute component={CoordinatorReports} allowedRoles={["CARE_COORDINATOR", "SUPER_ADMIN"]} />} />
 
-      <Route path="/clinical">
-        {() => <ProtectedRoute component={ClinicalDashboard} allowedRoles={["MEDICAL_PROVIDER"]} />}
-      </Route>
+      <Route path="/clinical" element={<ProtectedRoute component={ClinicalDashboard} allowedRoles={["MEDICAL_PROVIDER"]} />} />
 
-      <Route path="/admin">
-        {() => <ProtectedRoute component={AdminDashboard} allowedRoles={["SUPER_ADMIN"]} />}
-      </Route>
-      <Route path="/admin/users">
-        {() => <ProtectedRoute component={AdminUsers} allowedRoles={["SUPER_ADMIN"]} />}
-      </Route>
-      <Route path="/admin/services">
-        {() => <ProtectedRoute component={AdminServices} allowedRoles={["SUPER_ADMIN"]} />}
-      </Route>
-      <Route path="/admin/audit">
-        {() => <ProtectedRoute component={AdminAuditLogs} allowedRoles={["SUPER_ADMIN"]} />}
-      </Route>
+      <Route path="/admin" element={<ProtectedRoute component={AdminDashboard} allowedRoles={["SUPER_ADMIN"]} />} />
+      <Route path="/admin/users" element={<ProtectedRoute component={AdminUsers} allowedRoles={["SUPER_ADMIN"]} />} />
+      <Route path="/admin/services" element={<ProtectedRoute component={AdminServices} allowedRoles={["SUPER_ADMIN"]} />} />
+      <Route path="/admin/audit" element={<ProtectedRoute component={AdminAuditLogs} allowedRoles={["SUPER_ADMIN"]} />} />
 
-      <Route component={NotFound} />
-    </Switch>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 
@@ -125,10 +97,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <SessionTimeoutWarning />
-          <Router />
-        </WouterRouter>
+          <AppRoutes />
+        </BrowserRouter>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

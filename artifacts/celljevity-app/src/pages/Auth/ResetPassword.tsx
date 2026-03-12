@@ -1,21 +1,22 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button, Input, Label, Card, CardContent } from "@/components/ui";
 import { motion } from "framer-motion";
 
 export default function ResetPassword() {
+  const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   
-  const [location] = useLocation();
   const token = new URLSearchParams(window.location.search).get("token") || "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return setErrorMsg("Invalid or missing reset token");
-    if (password !== confirmPassword) return setErrorMsg("Passwords do not match");
+    if (password !== confirmPassword) return setErrorMsg(t("auth.passwordsMismatch"));
     if (password.length < 8) return setErrorMsg("Password must be at least 8 characters");
 
     setStatus("loading");
@@ -34,8 +35,9 @@ export default function ResetPassword() {
       }
       
       setStatus("success");
-    } catch (err: any) {
-      setErrorMsg(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred";
+      setErrorMsg(message);
       setStatus("error");
     }
   };
@@ -47,8 +49,7 @@ export default function ResetPassword() {
       <div className="relative z-10 w-full max-w-md px-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-display font-bold text-white mb-2">Create New Password</h1>
-            <p className="text-slate-300">Secure your account</p>
+            <h1 className="text-3xl font-display font-bold text-white mb-2">{t("auth.newPassword")}</h1>
           </div>
 
           <Card className="bg-white/10 backdrop-blur-2xl border-white/20 shadow-2xl">
@@ -56,10 +57,10 @@ export default function ResetPassword() {
               {status === "success" ? (
                 <div className="text-center space-y-4">
                   <div className="p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-xl text-emerald-200">
-                    Your password has been successfully reset.
+                    {t("auth.resetSuccess")}
                   </div>
-                  <Link href="/login">
-                    <Button className="w-full bg-accent text-accent-foreground py-6 text-lg rounded-xl">Sign in with new password</Button>
+                  <Link to="/login">
+                    <Button className="w-full bg-accent text-accent-foreground py-6 text-lg rounded-xl">{t("auth.signIn")}</Button>
                   </Link>
                 </div>
               ) : (
@@ -69,7 +70,7 @@ export default function ResetPassword() {
                   )}
                   
                   <div className="space-y-2">
-                    <Label className="text-slate-200">New Password</Label>
+                    <Label className="text-slate-200">{t("auth.newPassword")}</Label>
                     <Input 
                       type="password" required minLength={8}
                       value={password} onChange={e => setPassword(e.target.value)}
@@ -78,7 +79,7 @@ export default function ResetPassword() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-slate-200">Confirm Password</Label>
+                    <Label className="text-slate-200">{t("auth.confirmPassword")}</Label>
                     <Input 
                       type="password" required minLength={8}
                       value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
@@ -87,7 +88,7 @@ export default function ResetPassword() {
                   </div>
 
                   <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90 py-6 text-lg rounded-xl" disabled={status === "loading"}>
-                    {status === "loading" ? "Updating..." : "Update Password"}
+                    {status === "loading" ? t("common.loading") : t("auth.resetPassword")}
                   </Button>
                 </form>
               )}

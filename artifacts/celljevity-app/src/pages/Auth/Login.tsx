@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslation } from "react-i18next";
 import { Button, Input, Label, Card, CardContent } from "@/components/ui";
 import { motion } from "framer-motion";
 import { Activity } from "lucide-react";
 
 export default function Login() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -16,16 +18,15 @@ export default function Login() {
     setErrorMsg("");
     try {
       await login({ email, password });
-    } catch (err: any) {
-      setErrorMsg(err.message || "Invalid email or password");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t("auth.invalidCredentials");
+      setErrorMsg(message);
       setPassword("");
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-900">
-      {/* Background Image */}
-      {/* abstract medical lighting deep navy background */}
       <img 
         src={`${import.meta.env.BASE_URL}images/auth-bg.png`} 
         alt="Background" 
@@ -42,8 +43,8 @@ export default function Login() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 mb-6 shadow-2xl">
               <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Logo" className="w-10 h-10 rounded-lg" />
             </div>
-            <h1 className="text-3xl font-display font-bold text-white mb-2">Celljevity OS</h1>
-            <p className="text-slate-300">Enter your credentials to access your portal</p>
+            <h1 className="text-3xl font-display font-bold text-white mb-2">{t("auth.brandTitle")}</h1>
+            <p className="text-slate-300">{t("auth.brandSubtitle")}</p>
           </div>
 
           <Card className="bg-white/10 backdrop-blur-2xl border-white/20 shadow-2xl">
@@ -56,22 +57,22 @@ export default function Login() {
                 )}
                 
                 <div className="space-y-2">
-                  <Label className="text-slate-200">Email Address</Label>
+                  <Label className="text-slate-200">{t("auth.email")}</Label>
                   <Input 
                     type="email" 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required 
                     className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus-visible:ring-accent"
-                    placeholder="john.doe@example.com"
+                    placeholder={t("auth.emailPlaceholder")}
                   />
                 </div>
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-slate-200">Password</Label>
-                    <Link href="/forgot-password">
-                      <span className="text-sm text-accent hover:text-accent-foreground cursor-pointer transition-colors">Forgot password?</span>
+                    <Label className="text-slate-200">{t("auth.password")}</Label>
+                    <Link to="/forgot-password">
+                      <span className="text-sm text-accent hover:text-accent-foreground cursor-pointer transition-colors">{t("auth.forgotPassword")}</span>
                     </Link>
                   </div>
                   <Input 
@@ -91,7 +92,7 @@ export default function Login() {
                   {isLoggingIn ? (
                     <Activity className="w-5 h-5 animate-pulse" />
                   ) : (
-                    "Sign In"
+                    t("auth.signIn")
                   )}
                 </Button>
               </form>
@@ -99,9 +100,9 @@ export default function Login() {
           </Card>
 
           <p className="text-center mt-8 text-slate-400">
-            Don't have an account?{" "}
-            <Link href="/register">
-              <span className="text-accent hover:text-white font-medium cursor-pointer transition-colors">Create one</span>
+            {t("auth.noAccount")}{" "}
+            <Link to="/register">
+              <span className="text-accent hover:text-white font-medium cursor-pointer transition-colors">{t("auth.createOne")}</span>
             </Link>
           </p>
         </motion.div>

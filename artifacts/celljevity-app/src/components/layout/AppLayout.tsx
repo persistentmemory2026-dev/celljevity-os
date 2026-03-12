@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui";
 import { useTranslation } from "react-i18next";
@@ -28,7 +28,7 @@ interface NavItem {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const [location] = useLocation();
+  const { pathname: location } = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { t } = useTranslation();
 
@@ -93,7 +93,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           const isActive = location.startsWith(item.href);
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
+            <Link key={item.href} to={item.href} onClick={() => setIsMobileMenuOpen(false)}>
               <span className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer",
                 isActive 

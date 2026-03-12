@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useGetAuditLogs } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from "@/components/ui";
+import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { ShieldCheck, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function AuditLogs() {
+  const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
   const limit = 50;
   
@@ -13,32 +15,32 @@ export default function AuditLogs() {
   return (
     <div className="space-y-6 pb-12">
       <header>
-        <h1 className="text-3xl font-display font-bold">Audit Logs</h1>
-        <p className="text-muted-foreground mt-1">System-wide security and activity monitoring.</p>
+        <h1 className="text-3xl font-display font-bold">{t("admin.audit.title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("admin.audit.description")}</p>
       </header>
 
       <Card className="shadow-md">
         <CardHeader className="border-b bg-secondary/10 pb-4">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <ShieldCheck className="w-5 h-5 text-primary" /> Event Stream
+            <ShieldCheck className="w-5 h-5 text-primary" /> {t("admin.audit.title")}
           </CardTitle>
         </CardHeader>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-sm text-left rtl:text-right">
             <thead className="text-xs text-muted-foreground uppercase bg-secondary/30">
               <tr>
-                <th className="px-6 py-4 font-semibold">Timestamp</th>
-                <th className="px-6 py-4 font-semibold">User ID</th>
-                <th className="px-6 py-4 font-semibold">Action</th>
-                <th className="px-6 py-4 font-semibold">Resource</th>
-                <th className="px-6 py-4 font-semibold">IP Address</th>
+                <th className="px-6 py-4 font-semibold">{t("admin.audit.timestamp")}</th>
+                <th className="px-6 py-4 font-semibold">{t("admin.audit.user")}</th>
+                <th className="px-6 py-4 font-semibold">{t("admin.audit.action")}</th>
+                <th className="px-6 py-4 font-semibold">{t("admin.audit.resourceType")}</th>
+                <th className="px-6 py-4 font-semibold">{t("admin.audit.ipAddress")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border font-mono text-xs">
               {isLoading ? (
-                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground font-sans">Loading logs...</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground font-sans">{t("common.loading")}</td></tr>
               ) : auditData?.data?.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground font-sans">No audit logs found.</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground font-sans">{t("common.noData")}</td></tr>
               ) : (
                 auditData?.data?.map((log) => (
                   <tr key={log.id} className="hover:bg-secondary/20 transition-colors">
@@ -56,17 +58,16 @@ export default function AuditLogs() {
           </table>
         </div>
         
-        {/* Pagination */}
         <div className="p-4 border-t flex items-center justify-between bg-secondary/5">
           <div className="text-sm text-muted-foreground">
-            Showing {offset + 1} to {offset + (auditData?.data?.length || 0)}
+            {offset + 1} - {offset + (auditData?.data?.length || 0)}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setOffset(Math.max(0, offset - limit))} disabled={offset === 0}>
-              <ChevronLeft className="w-4 h-4" /> Previous
+              <ChevronLeft className="w-4 h-4" /> {t("common.back")}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setOffset(offset + limit)} disabled={(auditData?.data?.length || 0) < limit}>
-              Next <ChevronRight className="w-4 h-4" />
+              {t("common.next")} <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
