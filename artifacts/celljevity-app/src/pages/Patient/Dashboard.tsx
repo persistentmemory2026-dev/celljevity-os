@@ -1,8 +1,9 @@
+import { useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useGetMyProfile, useListBiomarkers } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@/components/ui";
 import { motion } from "framer-motion";
-import { Activity, ArrowRight, CheckCircle2, Circle, AlertCircle, FileText, Calendar } from "lucide-react";
+import { Activity, ArrowRight, CheckCircle2, Circle, AlertCircle, FileText, Calendar, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -14,13 +15,33 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { data: profile, isLoading } = useGetMyProfile();
 
-  const { data: biomarkersData } = useListBiomarkers(profile?.id || "", { limit: 5 }, { 
+  const { data: biomarkersData } = useListBiomarkers(profile?.id || "", { limit: 100 }, { 
     query: { enabled: !!profile?.id } 
   });
+
+  const bioSummary = useMemo(() => {
+    const data = biomarkersData?.data;
+    if (!data || data.length === 0) return null;
+
+    const ageReadings = data.filter(b => b.biomarkerType === "BIOLOGICAL_AGE" && b.valueNumeric != null);
+    const telomereReadings = data.filter(b => b.biomarkerType === "TELOMERE_LENGTH" && b.valueNumeric != null);
+
+    const latestAge = ageReadings.length > 0
+      ? [...ageReadings].sort((a, b) => new Date(b.testDate).getTime() - new Date(a.testDate).getTime())[0]
+      : null;
+
+    const latestTelomere = telomereReadings.length > 0
+      ? [...telomereReadings].sort((a, b) => new Date(b.testDate).getTime() - new Date(a.testDate).getTime())[0]
+      : null;
+
+    return { latestAge, latestTelomere };
+  }, [biomarkersData]);
 
   if (isLoading || !profile) return <div className="p-8 text-center text-muted-foreground animate-pulse">{t("common.loading")}</div>;
 
   const currentStageIdx = STAGES.indexOf(profile.journeyStage);
+  const cycleNumber = Math.max(1, Math.floor(currentStageIdx / STAGES.length) + 1);
+  const isFollowUp = profile.journeyStage === "FOLLOW_UP";
 
   return (
     <div className="space-y-8 pb-12">
@@ -34,6 +55,9 @@ export default function Dashboard() {
           <CardTitle className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-accent" />
             {t("patient.myJourney")}
+            <Badge variant="outline" className="ml-2 text-xs">
+              {t("patient.cycle", { number: cycleNumber })}
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -71,6 +95,13 @@ export default function Dashboard() {
                 );
               })}
             </div>
+
+            {isFollowUp && (
+              <div className="absolute -right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-primary">
+                <RefreshCw className="w-4 h-4" />
+                <span className="text-[10px] font-semibold uppercase">{t("patient.loopBack")}</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -123,13 +154,24 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">{t("patient.biologicalAge")}</p>
                     <div className="flex items-baseline gap-2 mt-1">
-                      <span className="text-3xl font-display font-bold">42</span>
-                      <span className="text-sm text-muted-foreground">years</span>
+                      {bioSummary?.latestAge ? (
+                        <>
+                          <span className="text-3xl font-display font-bold">{bioSummary.latestAge.valueNumeric}</span>
+                          <span className="text-sm text-muted-foreground">{bioSummary.latestAge.unit || t("biomarkers.years")}</span>
+                        </>
+                      ) : (
+                        <span className="text-lg text-muted-foreground">{t("biomarkers.awaitingData")}</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <Badge variant="success" className="mb-2">{t("biomarkers.optimal")}</Badge>
-                    <span className="text-xs text-emerald-600 font-medium">-2.5 yrs vs chrono</span>
+                    {bioSummary?.latestAge?.statusFlag && (
+                      <Badge variant={bioSummary.latestAge.statusFlag === 'OPTIMAL' ? 'success' : bioSummary.latestAge.statusFlag === 'WARNING' ? 'warning' : 'default'} className="mb-2">
+                        {bioSummary.latestAge.statusFlag === 'OPTIMAL' ? t("biomarkers.optimal") :
+                         bioSummary.latestAge.statusFlag === 'WARNING' ? t("biomarkers.warning") :
+                         bioSummary.latestAge.statusFlag}
+                      </Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -141,13 +183,24 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">{t("patient.telomereLength")}</p>
                     <div className="flex items-baseline gap-2 mt-1">
-                      <span className="text-3xl font-display font-bold">7.2</span>
-                      <span className="text-sm text-muted-foreground">kb</span>
+                      {bioSummary?.latestTelomere ? (
+                        <>
+                          <span className="text-3xl font-display font-bold">{bioSummary.latestTelomere.valueNumeric}</span>
+                          <span className="text-sm text-muted-foreground">{bioSummary.latestTelomere.unit || "kb"}</span>
+                        </>
+                      ) : (
+                        <span className="text-lg text-muted-foreground">{t("biomarkers.awaitingData")}</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <Badge variant="warning" className="mb-2">{t("biomarkers.warning")}</Badge>
-                    <span className="text-xs text-amber-600 font-medium">-0.1 {t("biomarkers.deltaFromPrevious")}</span>
+                    {bioSummary?.latestTelomere?.statusFlag && (
+                      <Badge variant={bioSummary.latestTelomere.statusFlag === 'OPTIMAL' ? 'success' : bioSummary.latestTelomere.statusFlag === 'WARNING' ? 'warning' : 'default'} className="mb-2">
+                        {bioSummary.latestTelomere.statusFlag === 'OPTIMAL' ? t("biomarkers.optimal") :
+                         bioSummary.latestTelomere.statusFlag === 'WARNING' ? t("biomarkers.warning") :
+                         bioSummary.latestTelomere.statusFlag}
+                      </Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>

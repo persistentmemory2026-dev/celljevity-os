@@ -305,11 +305,16 @@ function QuoteBuilder({ quoteId, onClose, services }: { quoteId: string, onClose
 
   if (isLoading || !quoteDetail) return <div className="p-12 text-center animate-pulse">{t("common.loading")}</div>;
 
+  const isEditable = quoteDetail.status === "DRAFT";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" onClick={onClose}>&larr; {t("quotes.backToQuotes")}</Button>
         <div className="flex-1" />
+        {!isEditable && (
+          <Badge variant="secondary" className="text-xs">{t("quotes.readOnly")}</Badge>
+        )}
         <Button variant="outline" className="gap-2" onClick={exportPDF}><Download className="w-4 h-4" /> {t("quotes.exportPdf")}</Button>
         <select 
           className="h-10 rounded-xl border border-input bg-background px-3 py-2 text-sm"

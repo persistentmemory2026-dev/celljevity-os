@@ -4,29 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell } from "recharts";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const mockAgeData = [
-  { date: '2023-01', biological: 45, chronological: 45 },
-  { date: '2023-06', biological: 44, chronological: 45.5, treatment: 'Telomere Therapy Start' },
-  { date: '2024-01', biological: 42, chronological: 46 },
-  { date: '2024-06', biological: 41, chronological: 46.5, treatment: 'NK Cell Infusion' },
-];
-
-const mockTelomereData = [
-  { d: 'Q1 2023', v: 6.8 },
-  { d: 'Q2 2023', v: 7.0, treatment: 'Telomere Therapy' },
-  { d: 'Q3 2023', v: 7.2 },
-  { d: 'Q4 2023', v: 7.1 },
-  { d: 'Q1 2024', v: 7.4 },
-];
-
-const mockNkCellData = [
-  { name: 'CD56bright', current: 180, baseline: 120 },
-  { name: 'CD56dim', current: 350, baseline: 300 },
-  { name: 'NKT', current: 85, baseline: 60 },
-];
 
 interface TreatmentDotProps {
   cx?: number;
@@ -41,6 +20,24 @@ function TreatmentDot({ cx, cy, payload }: TreatmentDotProps) {
       <circle cx={cx} cy={cy} r={8} fill="#f59e0b" stroke="#fff" strokeWidth={2} />
       <text x={cx} y={cy - 14} textAnchor="middle" fill="#f59e0b" fontSize={10} fontWeight="bold">Tx</text>
     </g>
+  );
+}
+
+interface BiomarkerReading {
+  biomarkerType: string;
+  testDate: string;
+  valueNumeric: number | null;
+  unit?: string;
+  statusFlag?: string;
+  notes?: string;
+}
+
+function NoChartData({ message }: { message: string }) {
+  return (
+    <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground">
+      <BarChart3 className="w-12 h-12 mb-3 opacity-40" />
+      <p className="text-sm">{message}</p>
+    </div>
   );
 }
 
@@ -80,6 +77,53 @@ export default function Biomarkers() {
     });
   }, [biomarkersList]);
 
+  const ageChartData = useMemo(() => {
+    const data = biomarkersList?.data as BiomarkerReading[] | undefined;
+    if (!data) return [];
+    const ageReadings = data.filter(b => b.biomarkerType === "BIOLOGICAL_AGE" && b.valueNumeric != null);
+    if (ageReadings.length === 0) return [];
+    return [...ageReadings]
+      .sort((a, b) => new Date(a.testDate).getTime() - new Date(b.testDate).getTime())
+      .map(r => ({
+        date: format(new Date(r.testDate), 'yyyy-MM'),
+        biological: r.valueNumeric,
+        treatment: r.notes || undefined,
+      }));
+  }, [biomarkersList]);
+
+  const telomereChartData = useMemo(() => {
+    const data = biomarkersList?.data as BiomarkerReading[] | undefined;
+    if (!data) return [];
+    const readings = data.filter(b => b.biomarkerType === "TELOMERE_LENGTH" && b.valueNumeric != null);
+    if (readings.length === 0) return [];
+    return [...readings]
+      .sort((a, b) => new Date(a.testDate).getTime() - new Date(b.testDate).getTime())
+      .map(r => ({
+        d: format(new Date(r.testDate), 'QQQ yyyy'),
+        v: r.valueNumeric,
+        treatment: r.notes || undefined,
+      }));
+  }, [biomarkersList]);
+
+  const nkCellChartData = useMemo(() => {
+    const data = biomarkersList?.data as BiomarkerReading[] | undefined;
+    if (!data) return [];
+    const nkReadings = data.filter(b => b.biomarkerType.startsWith("NK_CELL") && b.valueNumeric != null);
+    if (nkReadings.length === 0) return [];
+    const grouped = new Map<string, BiomarkerReading[]>();
+    for (const r of nkReadings) {
+      const key = r.biomarkerType;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(r);
+    }
+    return Array.from(grouped.entries()).map(([type, readings]) => {
+      const sorted = [...readings].sort((a, b) => new Date(a.testDate).getTime() - new Date(b.testDate).getTime());
+      const baseline = sorted[0].valueNumeric ?? 0;
+      const current = sorted[sorted.length - 1].valueNumeric ?? 0;
+      return { name: type.replace(/_/g, ' '), baseline, current };
+    });
+  }, [biomarkersList]);
+
   return (
     <div className="space-y-8 pb-12">
       <header>
@@ -93,25 +137,28 @@ export default function Biomarkers() {
             <CardTitle>{t("biomarkers.biologicalVsChronological")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={mockAgeData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                  <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number, name: string) => [value, name]}
-                    labelFormatter={(label: string) => {
-                      const point = mockAgeData.find(d => d.date === label);
-                      return point?.treatment ? `${label} — ${point.treatment}` : label;
-                    }}
-                  />
-                  <Line type="monotone" dataKey="biological" stroke="#14B8A6" strokeWidth={3} dot={<TreatmentDot />} name="Biological Age" />
-                  <Line type="step" dataKey="chronological" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Chronological Age" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            {ageChartData.length === 0 ? (
+              <NoChartData message={t("biomarkers.noAgeData")} />
+            ) : (
+              <div className="h-[300px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={ageChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                    <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value: number, name: string) => [value, name]}
+                      labelFormatter={(label: string) => {
+                        const point = ageChartData.find(d => d.date === label);
+                        return point?.treatment ? `${label} — ${point.treatment}` : label;
+                      }}
+                    />
+                    <Line type="monotone" dataKey="biological" stroke="#14B8A6" strokeWidth={3} dot={<TreatmentDot />} name={t("patient.biologicalAge")} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -120,32 +167,36 @@ export default function Biomarkers() {
             <CardTitle>{t("biomarkers.telomereLength")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full mt-4 relative">
-              <div className="absolute inset-0 z-0 flex flex-col opacity-10">
-                <div className="flex-1 bg-green-500" />
-                <div className="flex-1 bg-yellow-500" />
-                <div className="flex-1 bg-orange-500" />
-                <div className="flex-1 bg-red-500" />
+            {telomereChartData.length === 0 ? (
+              <NoChartData message={t("biomarkers.noTelomereData")} />
+            ) : (
+              <div className="h-[300px] w-full mt-4 relative">
+                <div className="absolute inset-0 z-0 flex flex-col opacity-10">
+                  <div className="flex-1 bg-green-500" />
+                  <div className="flex-1 bg-yellow-500" />
+                  <div className="flex-1 bg-orange-500" />
+                  <div className="flex-1 bg-red-500" />
+                </div>
+                <div className="relative z-10 h-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={telomereChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="d" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[5, 9]} tick={{ fontSize: 12 }} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        labelFormatter={(label: string) => {
+                          const point = telomereChartData.find(d => d.d === label);
+                          return point?.treatment ? `${label} — ${point.treatment}` : label;
+                        }}
+                      />
+                      <ReferenceLine y={7.0} stroke="#22c55e" strokeDasharray="3 3" label={{ value: t("biomarkers.optimal"), position: "right", fill: "#22c55e", fontSize: 11 }} />
+                      <Line type="monotone" dataKey="v" stroke="#0f172a" strokeWidth={3} dot={<TreatmentDot />} name="kb" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-              <div className="relative z-10 h-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={mockTelomereData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="d" tick={{ fontSize: 12 }} />
-                    <YAxis domain={[5, 9]} tick={{ fontSize: 12 }} />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      labelFormatter={(label: string) => {
-                        const point = mockTelomereData.find(d => d.d === label);
-                        return point?.treatment ? `${label} — ${point.treatment}` : label;
-                      }}
-                    />
-                    <ReferenceLine y={7.0} stroke="#22c55e" strokeDasharray="3 3" label={{ value: t("biomarkers.optimal"), position: "right", fill: "#22c55e", fontSize: 11 }} />
-                    <Line type="monotone" dataKey="v" stroke="#0f172a" strokeWidth={3} dot={<TreatmentDot />} name="kb" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -155,22 +206,26 @@ export default function Biomarkers() {
           <CardTitle>{t("biomarkers.nkCellComposition")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockNkCellData} margin={{ top: 10, right: 30, bottom: 10, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Bar dataKey="baseline" name="Baseline" radius={[4, 4, 0, 0]} fill="#94a3b8" />
-                <Bar dataKey="current" name="Current" radius={[4, 4, 0, 0]}>
-                  {mockNkCellData.map((entry, idx) => (
-                    <Cell key={idx} fill={entry.current > entry.baseline ? "#14B8A6" : "#f43f5e"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {nkCellChartData.length === 0 ? (
+            <NoChartData message={t("biomarkers.noNkCellData")} />
+          ) : (
+            <div className="h-[280px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={nkCellChartData} margin={{ top: 10, right: 30, bottom: 10, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Bar dataKey="baseline" name={t("biomarkers.baseline")} radius={[4, 4, 0, 0]} fill="#94a3b8" />
+                  <Bar dataKey="current" name={t("biomarkers.current")} radius={[4, 4, 0, 0]}>
+                    {nkCellChartData.map((entry, idx) => (
+                      <Cell key={idx} fill={entry.current > entry.baseline ? "#14B8A6" : "#f43f5e"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
 
