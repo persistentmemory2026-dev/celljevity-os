@@ -6,3 +6,9 @@ id = "jIl4QZsQujj0m62FUOOWz"
 uri = "file://.local/tasks/celljevity-prd.md"
 type = "text"
 title = "Celljevity Longevity OS — PRD v1.1 (Updated)"
+
+[[outputs]]
+id = "muBqnFMpfGbwxnNljaP8W"
+uri = "file://.local/tasks/design-briefs-for-gemini.md"
+type = "text"
+title = "Celljevity OS — Page Design Briefs for Gemini"

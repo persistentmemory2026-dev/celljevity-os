@@ -1,0 +1,24 @@
+packages:
+  "framer-motion": "For premium page transitions and interactive micro-animations"
+  "recharts": "For rendering complex biomarker data visualizations (Biological Age, Telomere trends)"
+  "date-fns": "For formatting clinical dates and timelines"
+  "react-hook-form": "For managing complex multi-step intake forms and quote builders"
+  "@hookform/resolvers": "For Zod schema validation with react-hook-form"
+  "clsx": "For conditional tailwind class merging"
+  "tailwind-merge": "For conditional tailwind class merging"
+  "react-dropzone": "For drag-and-drop document upload in the Vault and Intake wizard"
+  "jspdf": "For generating professional PDF quotes and invoices client-side"
+  "jspdf-autotable": "Helper for rendering tables in jspdf"
+
+images:
+  - path: "artifacts/celljevity-app/public/images/logo.png"
+    description: "Premium minimalistic logo mark for a high-end longevity clinic, abstract double helix or infinity loop, deep navy blue on transparent background, sleek and modern"
+    aspect_ratio: "1:1"
+  - path: "artifacts/celljevity-app/public/images/auth-bg.png"
+    description: "Abstract elegant background in deep navy blue with subtle teal light leaks, clean clinical laboratory lighting, soft curves, out of focus microscopy aesthetic"
+    aspect_ratio: "16:9"
+
+notes:
+  - Using pre-generated API client from @workspace/api-client-react for all data fetching and mutations
+  - Authentication relies on the session cookie "celljevity.sid" handled automatically by credentials: "include"
+  - Wouter is used for routing, ensuring role-based access control on the frontend
