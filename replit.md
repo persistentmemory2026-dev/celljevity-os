@@ -59,7 +59,7 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - **patients** — linked to users, celljevityId (auto-generated), journeyStage (ACQUISITION→INTAKE→DIAGNOSTICS→PLANNING→TREATMENT→FOLLOW_UP), isLead, medical history, assigned coordinator/provider
 - **leads** — lead/prospect tracking with source (WEBSITE/REFERRAL/PARTNER/EVENT/SOCIAL_MEDIA/DIRECT/OTHER), status (NEW→CONTACTED→QUALIFIED→CONVERTED/LOST), conversion to patient
 - **service_catalog** — category (EXOSOMES/PROMETHEUS/NK_CELLS/DIAGNOSTICS/OTHER), pricing, partner info
-- **quotes** — invoice/quote with auto-incrementing INV-YYYYMMDD-XXXX number, status (DRAFT→SENT→ACCEPTED→REJECTED→CANCELLED→PAID), currency, exchange rate
+- **quotes** — invoice/quote with auto-incrementing INV-YYYYMMDD-XXXX number, status (DRAFT→PENDING→ACCEPTED→PAID→CANCELLED with strict state machine transitions), currency, exchange rate (locked at creation for catalog-based pricing)
 - **invoice_line_items** — per-quote line items with service ref, qty, unit price, auto-calculated line total
 - **documents** — document vault with category, storageKey pattern, file tracking
 - **document_tokens** — signed tokens for upload/download with expiry and single-use enforcement
@@ -75,15 +75,15 @@ All routes mounted under `/api`:
 
 - **Auth**: POST /auth/register, POST /auth/login, POST /auth/logout, GET /auth/me
 - **Users**: GET /users, GET /users/:id, PATCH /users/:id, GET /users/audit-logs (admin)
-- **Patients**: GET /patients, POST /patients, GET /patients/:id, PATCH /patients/:id, GET /patients/me/profile
+- **Patients**: GET /patients, POST /patients, GET /patients/:id, PATCH /patients/:id, DELETE /patients/:id, GET /patients/me/profile
 - **Leads**: GET /leads, POST /leads, GET /leads/:id, PATCH /leads/:id, DELETE /leads/:id, POST /leads/:id/convert
-- **Services**: GET /services, POST /services, GET /services/:id, PATCH /services/:id
-- **Quotes**: GET /quotes, POST /quotes, GET /quotes/:id, PATCH /quotes/:id/status, POST /quotes/:id/line-items, DELETE /quotes/:id/line-items/:lineItemId
-- **Documents**: GET /patients/:id/documents, POST /patients/:id/documents, PUT /documents/:id/upload (token-based), GET /documents/:id/download, GET /documents/:id/content (token-based), DELETE /documents/:id
-- **Intake**: GET /intake, POST /intake, GET /intake/:id
-- **Biomarkers**: GET /biomarkers, POST /biomarkers, GET /biomarkers/:id
-- **Consent**: GET /consent, POST /consent, POST /consent/:id/revoke
-- **GDPR**: GET /gdpr/export (Article 20), POST /gdpr/delete (Article 17)
+- **Services**: GET /services, POST /services, GET /services/:id, PATCH /services/:id, DELETE /services/:id
+- **Quotes**: GET /quotes, POST /quotes, GET /quotes/:id, PATCH /quotes/:id, POST /quotes/:id/line-items, PATCH /quotes/:id/line-items/:lineItemId, DELETE /quotes/:id/line-items/:lineItemId
+- **Documents**: GET /patients/:id/documents, POST /patients/:id/documents, GET /documents/:id (metadata), PATCH /documents/:id (metadata), PUT /documents/:id/upload (token-based), GET /documents/:id/download, GET /documents/:id/content (token-based), DELETE /documents/:id
+- **Intake**: GET /patients/:id/intake, POST /patients/:id/intake, POST /patients/:id/intake/complete
+- **Biomarkers**: GET /patients/:id/biomarkers, POST /patients/:id/biomarkers, GET /biomarkers/:id, PATCH /biomarkers/:id, DELETE /biomarkers/:id
+- **Consent**: GET /patients/:id/consents, POST /patients/:id/consents, PATCH /consents/:id/revoke
+- **GDPR**: GET /gdpr/export (Article 20), POST /gdpr/delete (Article 17 with PII anonymization)
 - **Health**: GET /healthz
 
 ## Middleware

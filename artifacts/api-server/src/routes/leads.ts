@@ -41,7 +41,10 @@ router.get(
         ? await query.where(and(...conditions)).limit(limit).offset(offset)
         : await query.limit(limit).offset(offset);
 
-      const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(leadsTable);
+      const countQuery = conditions.length > 0
+        ? db.select({ count: sql<number>`count(*)` }).from(leadsTable).where(and(...conditions))
+        : db.select({ count: sql<number>`count(*)` }).from(leadsTable);
+      const [{ count }] = await countQuery;
 
       res.json({ data: result, total: Number(count), limit, offset });
     } catch (err) {

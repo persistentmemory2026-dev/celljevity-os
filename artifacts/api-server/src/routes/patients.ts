@@ -131,9 +131,15 @@ router.get(
         ? await query.where(and(...conditions)).limit(limit).offset(offset)
         : await query.limit(limit).offset(offset);
 
-      const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(patientsTable);
-
-      res.json({ data: result, total: Number(count), limit, offset });
+      const countQuery = db.select({ count: sql<number>`count(*)` }).from(patientsTable);
+      if (conditions.length > 0) {
+        const countWithJoin = db.select({ count: sql<number>`count(*)` }).from(patientsTable).innerJoin(usersTable, eq(patientsTable.userId, usersTable.id));
+        const [{ count }] = await countWithJoin.where(and(...conditions));
+        res.json({ data: result, total: Number(count), limit, offset });
+      } else {
+        const [{ count }] = await countQuery;
+        res.json({ data: result, total: Number(count), limit, offset });
+      }
     } catch (err) {
       next(err);
     }
