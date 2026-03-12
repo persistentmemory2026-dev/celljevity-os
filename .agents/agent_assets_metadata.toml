@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "jIl4QZsQujj0m62FUOOWz"
+uri = "file://.local/tasks/celljevity-prd.md"
+type = "text"
+title = "Celljevity Longevity OS — Product Requirements Document"

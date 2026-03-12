@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   patientsTable, usersTable, documentsTable, documentTokensTable, intakeFormsTable,
   biomarkerResultsTable, consentRecordsTable, quotesTable,
-  invoiceLineItemsTable, auditLogsTable, leadsTable,
+  invoiceLineItemsTable, auditLogsTable, leadsTable, securityEventsTable,
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, auditLog, type AuthenticatedRequest } from "../middlewares";
@@ -161,6 +161,16 @@ router.post(
 
       await db.delete(leadsTable).where(eq(leadsTable.convertedPatientId, patient.id));
       await db.delete(patientsTable).where(eq(patientsTable.id, patient.id));
+
+      await db.update(auditLogsTable).set({
+        ipAddress: null,
+        details: JSON.stringify({ redacted: true, reason: "GDPR_ERASURE" }),
+      }).where(eq(auditLogsTable.userId, userId));
+
+      await db.update(securityEventsTable).set({
+        ipAddress: null,
+        details: JSON.stringify({ redacted: true, reason: "GDPR_ERASURE" }),
+      }).where(eq(securityEventsTable.userId, userId));
 
       const erasureId = crypto.randomUUID().slice(0, 8);
 

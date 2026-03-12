@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { consentRecordsTable, patientsTable } from "@workspace/db/schema";
+import { consentRecordsTable, patientsTable, consentTypeEnum } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireSelfOrRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
+const VALID_CONSENT_TYPES = consentTypeEnum.enumValues;
 
 router.get(
   "/patients/:patientId/consents",
@@ -36,6 +37,11 @@ router.post(
 
       if (!consentType) {
         res.status(400).json({ error: "consentType is required" });
+        return;
+      }
+
+      if (!VALID_CONSENT_TYPES.includes(consentType)) {
+        res.status(400).json({ error: `Invalid consentType. Must be one of: ${VALID_CONSENT_TYPES.join(", ")}` });
         return;
       }
 
