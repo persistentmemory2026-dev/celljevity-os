@@ -672,7 +672,7 @@ export const listQuotesQueryOffsetDefault = 0;
 export const ListQuotesQueryParams = zod.object({
   patientId: zod.coerce.string().uuid().optional(),
   status: zod
-    .enum(["DRAFT", "PENDING_SIGNATURE", "ACCEPTED", "PAID", "CANCELLED"])
+    .enum(["DRAFT", "PENDING", "ACCEPTED", "PAID", "CANCELLED"])
     .optional(),
   limit: zod.coerce.number().default(listQuotesQueryLimitDefault),
   offset: zod.coerce.number().default(listQuotesQueryOffsetDefault),
@@ -685,13 +685,7 @@ export const ListQuotesResponse = zod.object({
       invoiceNumber: zod.string(),
       patientId: zod.string().uuid(),
       createdBy: zod.string().uuid(),
-      status: zod.enum([
-        "DRAFT",
-        "PENDING_SIGNATURE",
-        "ACCEPTED",
-        "PAID",
-        "CANCELLED",
-      ]),
+      status: zod.enum(["DRAFT", "PENDING", "ACCEPTED", "PAID", "CANCELLED"]),
       issueDate: zod.date(),
       currency: zod.string(),
       exchangeRateUsed: zod.string(),
@@ -728,13 +722,7 @@ export const GetQuoteResponse = zod.object({
   invoiceNumber: zod.string(),
   patientId: zod.string().uuid(),
   createdBy: zod.string().uuid(),
-  status: zod.enum([
-    "DRAFT",
-    "PENDING_SIGNATURE",
-    "ACCEPTED",
-    "PAID",
-    "CANCELLED",
-  ]),
+  status: zod.enum(["DRAFT", "PENDING", "ACCEPTED", "PAID", "CANCELLED"]),
   issueDate: zod.date(),
   currency: zod.string(),
   exchangeRateUsed: zod.string().optional(),
@@ -767,7 +755,7 @@ export const UpdateQuoteParams = zod.object({
 
 export const UpdateQuoteBody = zod.object({
   status: zod
-    .enum(["DRAFT", "PENDING_SIGNATURE", "ACCEPTED", "PAID", "CANCELLED"])
+    .enum(["DRAFT", "PENDING", "ACCEPTED", "PAID", "CANCELLED"])
     .optional(),
   currency: zod.string().optional(),
   exchangeRateUsed: zod.number().optional(),
@@ -780,13 +768,7 @@ export const UpdateQuoteResponse = zod.object({
   invoiceNumber: zod.string(),
   patientId: zod.string().uuid(),
   createdBy: zod.string().uuid(),
-  status: zod.enum([
-    "DRAFT",
-    "PENDING_SIGNATURE",
-    "ACCEPTED",
-    "PAID",
-    "CANCELLED",
-  ]),
+  status: zod.enum(["DRAFT", "PENDING", "ACCEPTED", "PAID", "CANCELLED"]),
   issueDate: zod.date(),
   currency: zod.string(),
   exchangeRateUsed: zod.string(),

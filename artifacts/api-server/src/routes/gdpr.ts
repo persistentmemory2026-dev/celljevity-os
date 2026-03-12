@@ -78,6 +78,18 @@ router.get(
         .from(quotesTable)
         .where(eq(quotesTable.patientId, patient.id));
 
+      const quoteIds = quotes.map((q) => q.id);
+      let lineItems: (typeof invoiceLineItemsTable.$inferSelect)[] = [];
+      if (quoteIds.length > 0) {
+        for (const qId of quoteIds) {
+          const items = await db
+            .select()
+            .from(invoiceLineItemsTable)
+            .where(eq(invoiceLineItemsTable.quoteId, qId));
+          lineItems = lineItems.concat(items);
+        }
+      }
+
       res.json({
         exportDate: new Date().toISOString(),
         user,
@@ -87,6 +99,7 @@ router.get(
         biomarkers,
         consents,
         quotes,
+        invoiceLineItems: lineItems,
       });
     } catch (err) {
       next(err);

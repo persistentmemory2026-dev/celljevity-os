@@ -1139,7 +1139,7 @@ components:
 
     QuoteStatus:
       type: string
-      enum: [DRAFT, PENDING_SIGNATURE, ACCEPTED, PAID, CANCELLED]
+      enum: [DRAFT, PENDING, ACCEPTED, PAID, CANCELLED]
 
     DocumentType:
       type: string

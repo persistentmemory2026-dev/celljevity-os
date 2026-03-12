@@ -52,7 +52,7 @@ export type QuoteStatus = (typeof QuoteStatus)[keyof typeof QuoteStatus];
 
 export const QuoteStatus = {
   DRAFT: "DRAFT",
-  PENDING_SIGNATURE: "PENDING_SIGNATURE",
+  PENDING: "PENDING",
   ACCEPTED: "ACCEPTED",
   PAID: "PAID",
   CANCELLED: "CANCELLED",

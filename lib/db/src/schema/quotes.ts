@@ -6,7 +6,7 @@ import { usersTable } from "./users";
 
 export const quoteStatusEnum = pgEnum("quote_status", [
   "DRAFT",
-  "PENDING_SIGNATURE",
+  "PENDING",
   "ACCEPTED",
   "PAID",
   "CANCELLED",
