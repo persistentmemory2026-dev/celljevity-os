@@ -209,7 +209,7 @@ router.patch(
         return;
       }
 
-      res.json(updated);
+      res.json(filterPatientByRole(updated as Record<string, unknown>, req.user!.role));
     } catch (err) {
       next(err);
     }

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { documentsTable, documentTokensTable, patientsTable, documentTypeEnum } from "@workspace/db/schema";
+import { documentsTable, documentTokensTable, patientsTable, documentTypeEnum, auditLogsTable } from "@workspace/db/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { requireAuth, requireSelfOrRole, auditLog, type AuthenticatedRequest } from "../middlewares";
 import crypto from "crypto";
@@ -260,7 +260,7 @@ router.get(
 
 router.get(
   "/documents/:documentId/content",
-  async (req, res, next) => {
+  async (req: AuthenticatedRequest, res, next) => {
     try {
       const downloadToken = (req.headers["x-download-token"] as string) || (req.query.token as string);
 
@@ -305,6 +305,22 @@ router.get(
         .update(documentTokensTable)
         .set({ usedAt: new Date() })
         .where(eq(documentTokensTable.id, tokenRecord.id));
+
+      db.insert(auditLogsTable)
+        .values({
+          userId: tokenRecord.issuedTo,
+          action: "DOWNLOAD_DOCUMENT_CONTENT",
+          targetResourceType: "document",
+          targetResourceId: doc.id,
+          details: JSON.stringify({
+            method: req.method,
+            path: req.originalUrl,
+            fileName: doc.fileName,
+          }),
+          ipAddress: req.ip ?? req.socket.remoteAddress ?? null,
+        })
+        .execute()
+        .catch((err: unknown) => console.error("Audit log error:", err));
 
       const filePath = path.join(UPLOAD_DIR, doc.storageKey);
 

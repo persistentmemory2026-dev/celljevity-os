@@ -19,6 +19,7 @@ function generateInvoiceNumber(): string {
 router.get(
   "/quotes",
   requireAuth,
+  auditLog("LIST_QUOTES"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const { patientId, status, limit: limitStr, offset: offsetStr } = req.query;
