@@ -86,6 +86,7 @@ export * from "./updateBiomarkerResultBodyStatusFlag";
 export * from "./updateLeadInput";
 export * from "./updateLeadInputSource";
 export * from "./updateLeadInputStatus";
+export * from "./updateLineItemBody";
 export * from "./updatePatientRequest";
 export * from "./updateQuoteRequest";
 export * from "./updateServiceRequest";

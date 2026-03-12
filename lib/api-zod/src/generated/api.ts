@@ -664,6 +664,17 @@ export const UpdateServiceResponse = zod.object({
 });
 
 /**
+ * @summary Delete service (Super Admin only)
+ */
+export const DeleteServiceParams = zod.object({
+  serviceId: zod.coerce.string().uuid(),
+});
+
+export const DeleteServiceResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
  * @summary List quotes
  */
 export const listQuotesQueryLimitDefault = 50;
@@ -790,6 +801,30 @@ export const AddLineItemBody = zod.object({
   customDescription: zod.string().optional(),
   quantity: zod.number().optional(),
   unitPrice: zod.number(),
+});
+
+/**
+ * @summary Update line item
+ */
+export const UpdateLineItemParams = zod.object({
+  quoteId: zod.coerce.string().uuid(),
+  lineItemId: zod.coerce.string().uuid(),
+});
+
+export const UpdateLineItemBody = zod.object({
+  customDescription: zod.string().optional(),
+  quantity: zod.number().optional(),
+  unitPrice: zod.number().optional(),
+});
+
+export const UpdateLineItemResponse = zod.object({
+  id: zod.string().uuid(),
+  quoteId: zod.string().uuid(),
+  serviceId: zod.string().uuid(),
+  customDescription: zod.string().nullish(),
+  quantity: zod.number(),
+  unitPrice: zod.string(),
+  lineTotal: zod.string(),
 });
 
 /**

@@ -244,6 +244,18 @@ router.patch(
   }
 );
 
+async function recalcQuoteTotal(quoteId: string) {
+  const [totals] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${invoiceLineItemsTable.lineTotal}), 0)` })
+    .from(invoiceLineItemsTable)
+    .where(eq(invoiceLineItemsTable.quoteId, quoteId));
+
+  await db
+    .update(quotesTable)
+    .set({ totalAmount: totals.total, updatedAt: new Date() })
+    .where(eq(quotesTable.id, quoteId));
+}
+
 router.post(
   "/quotes/:quoteId/line-items",
   requireAuth,
@@ -251,37 +263,113 @@ router.post(
   auditLog("ADD_LINE_ITEM", (req) => ({ type: "quote", id: req.params.quoteId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const { serviceId, customDescription, quantity, unitPrice } = req.body;
+      const { serviceId, customDescription, quantity, unitPrice: manualUnitPrice } = req.body;
 
-      if (!serviceId || unitPrice === undefined) {
-        res.status(400).json({ error: "serviceId and unitPrice are required" });
+      if (!serviceId) {
+        res.status(400).json({ error: "serviceId is required" });
+        return;
+      }
+
+      const [quote] = await db
+        .select()
+        .from(quotesTable)
+        .where(eq(quotesTable.id, req.params.quoteId))
+        .limit(1);
+
+      if (!quote) {
+        res.status(404).json({ error: "Quote not found" });
+        return;
+      }
+
+      const [service] = await db
+        .select()
+        .from(serviceCatalogTable)
+        .where(eq(serviceCatalogTable.id, serviceId))
+        .limit(1);
+
+      if (!service) {
+        res.status(404).json({ error: "Service not found in catalog" });
         return;
       }
 
       const qty = quantity || 1;
-      const price = parseFloat(unitPrice);
+      let price: number;
+
+      if (manualUnitPrice !== undefined) {
+        price = parseFloat(manualUnitPrice);
+      } else {
+        const basePriceEur = parseFloat(service.basePriceEur);
+        const exchangeRate = parseFloat(quote.exchangeRateUsed);
+        price = basePriceEur * exchangeRate;
+      }
+
       const lineTotal = qty * price;
 
       const [item] = await db.insert(invoiceLineItemsTable).values({
         quoteId: req.params.quoteId,
         serviceId,
-        customDescription,
+        customDescription: customDescription || service.defaultDescription,
         quantity: qty,
-        unitPrice: String(price),
-        lineTotal: String(lineTotal),
+        unitPrice: String(price.toFixed(2)),
+        lineTotal: String(lineTotal.toFixed(2)),
       }).returning();
 
-      const [totals] = await db
-        .select({ total: sql<string>`COALESCE(SUM(${invoiceLineItemsTable.lineTotal}), 0)` })
-        .from(invoiceLineItemsTable)
-        .where(eq(invoiceLineItemsTable.quoteId, req.params.quoteId));
-
-      await db
-        .update(quotesTable)
-        .set({ totalAmount: totals.total, updatedAt: new Date() })
-        .where(eq(quotesTable.id, req.params.quoteId));
+      await recalcQuoteTotal(req.params.quoteId);
 
       res.status(201).json(item);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.patch(
+  "/quotes/:quoteId/line-items/:lineItemId",
+  requireAuth,
+  requireRole("CARE_COORDINATOR", "SUPER_ADMIN"),
+  auditLog("UPDATE_LINE_ITEM", (req) => ({ type: "quote", id: req.params.quoteId })),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const [existing] = await db
+        .select()
+        .from(invoiceLineItemsTable)
+        .where(
+          and(
+            eq(invoiceLineItemsTable.id, req.params.lineItemId),
+            eq(invoiceLineItemsTable.quoteId, req.params.quoteId)
+          )
+        )
+        .limit(1);
+
+      if (!existing) {
+        res.status(404).json({ error: "Line item not found" });
+        return;
+      }
+
+      const updates: Partial<typeof invoiceLineItemsTable.$inferInsert> = {};
+
+      if (req.body.customDescription !== undefined) updates.customDescription = req.body.customDescription;
+      if (req.body.quantity !== undefined) updates.quantity = req.body.quantity;
+      if (req.body.unitPrice !== undefined) updates.unitPrice = String(req.body.unitPrice);
+
+      const qty = updates.quantity ?? existing.quantity;
+      const price = parseFloat(updates.unitPrice ?? existing.unitPrice);
+      updates.lineTotal = String((qty * price).toFixed(2));
+
+      const [updated] = await db
+        .update(invoiceLineItemsTable)
+        .set(updates)
+        .where(
+          and(
+            eq(invoiceLineItemsTable.id, req.params.lineItemId),
+            eq(invoiceLineItemsTable.quoteId, req.params.quoteId)
+          )
+        )
+        .returning();
+
+      await recalcQuoteTotal(req.params.quoteId);
+
+      res.json(updated);
     } catch (err) {
       next(err);
     }
@@ -310,15 +398,7 @@ router.delete(
         return;
       }
 
-      const [totals] = await db
-        .select({ total: sql<string>`COALESCE(SUM(${invoiceLineItemsTable.lineTotal}), 0)` })
-        .from(invoiceLineItemsTable)
-        .where(eq(invoiceLineItemsTable.quoteId, req.params.quoteId));
-
-      await db
-        .update(quotesTable)
-        .set({ totalAmount: totals.total, updatedAt: new Date() })
-        .where(eq(quotesTable.id, req.params.quoteId));
+      await recalcQuoteTotal(req.params.quoteId);
 
       res.json({ message: "Line item deleted" });
     } catch (err) {

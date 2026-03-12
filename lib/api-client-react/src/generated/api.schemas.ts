@@ -686,6 +686,12 @@ export type ListQuotesParams = {
   offset?: OffsetParameter;
 };
 
+export type UpdateLineItemBody = {
+  customDescription?: string;
+  quantity?: number;
+  unitPrice?: number;
+};
+
 export type ListDocumentsParams = {
   documentType?: DocumentType;
 };

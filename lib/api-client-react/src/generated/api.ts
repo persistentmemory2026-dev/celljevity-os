@@ -63,6 +63,7 @@ import type {
   ServiceListResponse,
   UpdateBiomarkerResultBody,
   UpdateLeadInput,
+  UpdateLineItemBody,
   UpdatePatientRequest,
   UpdateQuoteRequest,
   UpdateServiceRequest,
@@ -2055,6 +2056,90 @@ export const useUpdateService = <
 };
 
 /**
+ * @summary Delete service (Super Admin only)
+ */
+export const getDeleteServiceUrl = (serviceId: string) => {
+  return `/api/services/${serviceId}`;
+};
+
+export const deleteService = async (
+  serviceId: string,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getDeleteServiceUrl(serviceId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteServiceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteService>>,
+    TError,
+    { serviceId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteService>>,
+  TError,
+  { serviceId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteService"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteService>>,
+    { serviceId: string }
+  > = (props) => {
+    const { serviceId } = props ?? {};
+
+    return deleteService(serviceId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteServiceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteService>>
+>;
+
+export type DeleteServiceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete service (Super Admin only)
+ */
+export const useDeleteService = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteService>>,
+    TError,
+    { serviceId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteService>>,
+  TError,
+  { serviceId: string },
+  TContext
+> => {
+  return useMutation(getDeleteServiceMutationOptions(options));
+};
+
+/**
  * @summary List quotes
  */
 export const getListQuotesUrl = (params?: ListQuotesParams) => {
@@ -2491,6 +2576,94 @@ export const useAddLineItem = <
   TContext
 > => {
   return useMutation(getAddLineItemMutationOptions(options));
+};
+
+/**
+ * @summary Update line item
+ */
+export const getUpdateLineItemUrl = (quoteId: string, lineItemId: string) => {
+  return `/api/quotes/${quoteId}/line-items/${lineItemId}`;
+};
+
+export const updateLineItem = async (
+  quoteId: string,
+  lineItemId: string,
+  updateLineItemBody: UpdateLineItemBody,
+  options?: RequestInit,
+): Promise<LineItem> => {
+  return customFetch<LineItem>(getUpdateLineItemUrl(quoteId, lineItemId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateLineItemBody),
+  });
+};
+
+export const getUpdateLineItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLineItem>>,
+    TError,
+    { quoteId: string; lineItemId: string; data: BodyType<UpdateLineItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLineItem>>,
+  TError,
+  { quoteId: string; lineItemId: string; data: BodyType<UpdateLineItemBody> },
+  TContext
+> => {
+  const mutationKey = ["updateLineItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLineItem>>,
+    { quoteId: string; lineItemId: string; data: BodyType<UpdateLineItemBody> }
+  > = (props) => {
+    const { quoteId, lineItemId, data } = props ?? {};
+
+    return updateLineItem(quoteId, lineItemId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLineItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLineItem>>
+>;
+export type UpdateLineItemMutationBody = BodyType<UpdateLineItemBody>;
+export type UpdateLineItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update line item
+ */
+export const useUpdateLineItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLineItem>>,
+    TError,
+    { quoteId: string; lineItemId: string; data: BodyType<UpdateLineItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLineItem>>,
+  TError,
+  { quoteId: string; lineItemId: string; data: BodyType<UpdateLineItemBody> },
+  TContext
+> => {
+  return useMutation(getUpdateLineItemMutationOptions(options));
 };
 
 /**

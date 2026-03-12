@@ -156,4 +156,28 @@ router.patch(
   }
 );
 
+router.delete(
+  "/services/:serviceId",
+  requireAuth,
+  requireRole("SUPER_ADMIN"),
+  auditLog("DELETE_SERVICE", (req) => ({ type: "service", id: req.params.serviceId })),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const [deleted] = await db
+        .delete(serviceCatalogTable)
+        .where(eq(serviceCatalogTable.id, req.params.serviceId))
+        .returning();
+
+      if (!deleted) {
+        res.status(404).json({ error: "Service not found" });
+        return;
+      }
+
+      res.json({ message: "Service deleted" });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 export default router;
