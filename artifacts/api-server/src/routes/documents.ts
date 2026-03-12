@@ -279,6 +279,7 @@ router.get(
 
 router.get(
   "/documents/:documentId/content",
+  requireAuth,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const downloadToken = (req.headers["x-download-token"] as string) || (req.query.token as string);
@@ -298,6 +299,7 @@ router.get(
             eq(documentTokensTable.documentId, documentId),
             eq(documentTokensTable.token, downloadToken),
             eq(documentTokensTable.purpose, "download"),
+            eq(documentTokensTable.issuedTo, req.user!.id),
             gt(documentTokensTable.expiresAt, new Date()),
             isNull(documentTokensTable.usedAt)
           )

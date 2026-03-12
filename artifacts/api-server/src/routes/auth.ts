@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcrypt";
 import { db } from "@workspace/db";
-import { usersTable, patientsTable } from "@workspace/db/schema";
+import { usersTable, patientsTable, auditLogsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest, logSecurityEvent } from "../middlewares";
 
@@ -37,11 +37,20 @@ router.post("/auth/register", async (req: AuthenticatedRequest, res, next) => {
 
     if (assignedRole === "PATIENT") {
       const celljevityId = `CELL-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      await db.insert(patientsTable).values({
+      const [patient] = await db.insert(patientsTable).values({
         userId: user.id,
         celljevityId,
         journeyStage: "ACQUISITION",
         isLead: true,
+      }).returning();
+
+      await db.insert(auditLogsTable).values({
+        userId: user.id,
+        action: "PATIENT_CREATED",
+        targetResourceType: "patient",
+        targetResourceId: patient.id,
+        details: JSON.stringify({ method: "POST", path: "/auth/register" }),
+        ipAddress: req.ip ?? req.socket.remoteAddress ?? null,
       });
     }
 
