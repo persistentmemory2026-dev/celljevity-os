@@ -95,6 +95,11 @@ export default function Intake() {
       }
       if (intakeForm.isComplete) {
         setCurrentStep(STEPS.length);
+      } else {
+        let resumeStep = 0;
+        if (intakeForm.personalProfile) resumeStep = 1;
+        if (intakeForm.medicalHistory) resumeStep = 2;
+        setCurrentStep(resumeStep);
       }
     }
   }, [intakeForm]);
@@ -331,11 +336,11 @@ export default function Intake() {
               
               <div className="space-y-4">
                 {[
-                  { id: 'DATA_PROCESSING', label: t("intake.dataProcessing"), desc: t("intake.dataProcessingDesc") },
-                  { id: 'MEDICAL_DATA_SHARING', label: t("intake.medicalSharing"), desc: t("intake.medicalSharingDesc") },
-                  { id: 'TERMS_AND_CONDITIONS', label: t("intake.termsConditions"), desc: t("intake.termsConditionsDesc") },
-                  { id: 'TREATMENT_CONSENT', label: t("intake.treatmentConsent"), desc: t("intake.treatmentConsentDesc") },
-                  { id: 'MARKETING', label: t("intake.marketing"), desc: t("intake.marketingDesc") }
+                  { id: 'DATA_PROCESSING', label: t("intake.dataProcessing"), desc: t("intake.dataProcessingDesc"), linkKey: "intake.dataProcessingLink" },
+                  { id: 'MEDICAL_DATA_SHARING', label: t("intake.medicalSharing"), desc: t("intake.medicalSharingDesc"), linkKey: "intake.medicalSharingLink" },
+                  { id: 'TERMS_AND_CONDITIONS', label: t("intake.termsConditions"), desc: t("intake.termsConditionsDesc"), linkKey: "intake.termsConditionsLink" },
+                  { id: 'TREATMENT_CONSENT', label: t("intake.treatmentConsent"), desc: t("intake.treatmentConsentDesc"), linkKey: "intake.treatmentConsentLink" },
+                  { id: 'MARKETING', label: t("intake.marketing"), desc: t("intake.marketingDesc"), linkKey: "" }
                 ].map((c) => (
                   <div key={c.id} className="flex items-start space-x-3 rtl:space-x-reverse p-4 rounded-xl border bg-secondary/20">
                     <Checkbox 
@@ -346,6 +351,11 @@ export default function Intake() {
                     <div className="space-y-1 leading-none">
                       <label htmlFor={c.id} className="font-medium cursor-pointer">{c.label}</label>
                       <p className="text-sm text-muted-foreground">{c.desc}</p>
+                      {c.linkKey && (
+                        <a href="#" className="text-xs text-primary underline hover:text-primary/80">
+                          {t(c.linkKey)}
+                        </a>
+                      )}
                     </div>
                   </div>
                 ))}

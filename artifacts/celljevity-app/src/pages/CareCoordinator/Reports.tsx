@@ -1,11 +1,14 @@
 import { useListPatients, useListLeads } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+
+const STAGES = ['ACQUISITION', 'INTAKE', 'DIAGNOSTICS', 'PLANNING', 'TREATMENT', 'FOLLOW_UP'];
 
 export default function Reports() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data: patientsData, isLoading: isLoadingPatients } = useListPatients({ limit: 1000 });
   const { data: leadsData, isLoading: isLoadingLeads } = useListLeads({ limit: 1000 });
 
@@ -17,9 +20,9 @@ export default function Reports() {
   const completedIntake = patientsData?.data?.filter(p => p.journeyStage !== 'INTAKE' && p.journeyStage !== 'ACQUISITION').length || 0;
   const intakeCompletionRate = totalPatients > 0 ? Math.round((completedIntake / totalPatients) * 100) : 0;
 
-  const stages = ['ACQUISITION', 'INTAKE', 'DIAGNOSTICS', 'PLANNING', 'TREATMENT', 'FOLLOW_UP'];
-  const stageData = stages.map(stage => ({
+  const stageData = STAGES.map(stage => ({
     name: t(`patient.stages.${stage}`),
+    stage,
     count: patientsData?.data?.filter(p => p.journeyStage === stage).length || 0
   }));
 
@@ -32,6 +35,12 @@ export default function Reports() {
 
   const sourceData = Object.entries(sources).map(([name, value]) => ({ name: name.replace('_', ' '), value }));
   const COLORS = ['#14B8A6', '#0EA5E9', '#3B82F6', '#6366F1', '#8B5CF6', '#D946EF', '#F43F5E'];
+
+  const handleBarClick = (data: { stage?: string }) => {
+    if (data?.stage) {
+      navigate(`/crm?stage=${data.stage}`);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -77,6 +86,7 @@ export default function Reports() {
         <Card className="shadow-md">
           <CardHeader>
             <CardTitle>{t("reports.patientsByStage")}</CardTitle>
+            <p className="text-xs text-muted-foreground">{t("reports.clickToFilter")}</p>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
@@ -100,7 +110,7 @@ export default function Reports() {
                       cursor={{fill: '#f1f5f9'}}
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
-                    <Bar dataKey="count" fill="#0f172a" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="count" fill="#0f172a" radius={[4, 4, 0, 0]} className="cursor-pointer" onClick={handleBarClick} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -122,7 +132,7 @@ export default function Reports() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={sourceData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
-                      {sourceData.map((entry, index) => (
+                      {sourceData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
