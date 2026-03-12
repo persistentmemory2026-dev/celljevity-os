@@ -240,6 +240,28 @@ export const ListPatientsResponse = zod.object({
 });
 
 /**
+ * @summary Create patient (Care Coordinator / Super Admin)
+ */
+export const CreatePatientBody = zod.object({
+  email: zod.string().email(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  dateOfBirth: zod.date().optional(),
+  phone: zod.string().optional(),
+  address: zod.string().optional(),
+  journeyStage: zod
+    .enum([
+      "ACQUISITION",
+      "INTAKE",
+      "DIAGNOSTICS",
+      "PLANNING",
+      "TREATMENT",
+      "FOLLOW_UP",
+    ])
+    .optional(),
+});
+
+/**
  * @summary Get own patient profile
  */
 export const GetMyProfileResponse = zod.object({
@@ -345,6 +367,17 @@ export const UpdatePatientResponse = zod.object({
   isLead: zod.boolean(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete patient (Super Admin only)
+ */
+export const DeletePatientParams = zod.object({
+  patientId: zod.coerce.string().uuid(),
+});
+
+export const DeletePatientResponse = zod.object({
+  message: zod.string(),
 });
 
 /**
@@ -949,6 +982,74 @@ export const DownloadDocumentContentQueryParams = zod.object({
 
 export const DownloadDocumentContentHeader = zod.object({
   "x-download-token": zod.string().optional(),
+});
+
+/**
+ * @summary Get document metadata by ID
+ */
+export const GetDocumentMetadataParams = zod.object({
+  documentId: zod.coerce.string().uuid(),
+});
+
+export const GetDocumentMetadataResponse = zod.object({
+  id: zod.string().uuid(),
+  patientId: zod.string().uuid(),
+  uploadedBy: zod.string().uuid(),
+  documentType: zod.enum([
+    "LAB_RESULT",
+    "DOCTOR_LETTER",
+    "SIGNED_CONSENT",
+    "BIOPSY_REPORT",
+    "INVOICE_PDF",
+    "IMAGING",
+    "OTHER",
+  ]),
+  fileName: zod.string(),
+  mimeType: zod.string().nullish(),
+  fileSize: zod.number().nullish(),
+  uploadDate: zod.date(),
+});
+
+/**
+ * @summary Update document metadata
+ */
+export const UpdateDocumentMetadataParams = zod.object({
+  documentId: zod.coerce.string().uuid(),
+});
+
+export const UpdateDocumentMetadataBody = zod.object({
+  documentType: zod
+    .enum([
+      "LAB_RESULT",
+      "DOCTOR_LETTER",
+      "SIGNED_CONSENT",
+      "BIOPSY_REPORT",
+      "INVOICE_PDF",
+      "IMAGING",
+      "OTHER",
+    ])
+    .optional(),
+  fileName: zod.string().optional(),
+  mimeType: zod.string().optional(),
+});
+
+export const UpdateDocumentMetadataResponse = zod.object({
+  id: zod.string().uuid(),
+  patientId: zod.string().uuid(),
+  uploadedBy: zod.string().uuid(),
+  documentType: zod.enum([
+    "LAB_RESULT",
+    "DOCTOR_LETTER",
+    "SIGNED_CONSENT",
+    "BIOPSY_REPORT",
+    "INVOICE_PDF",
+    "IMAGING",
+    "OTHER",
+  ]),
+  fileName: zod.string(),
+  mimeType: zod.string().nullish(),
+  fileSize: zod.number().nullish(),
+  uploadDate: zod.date(),
 });
 
 /**

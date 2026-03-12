@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { documentsTable, documentTokensTable, patientsTable, documentTypeEnum, auditLogsTable } from "@workspace/db/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
-import { requireAuth, requireSelfOrRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireRole, requireSelfOrRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs/promises";
@@ -78,6 +78,112 @@ router.get(
       });
 
       res.json({ data: filtered });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.get(
+  "/documents/:documentId",
+  requireAuth,
+  auditLog("VIEW_DOCUMENT_METADATA", (req) => ({ type: "document", id: req.params.documentId })),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const [doc] = await db
+        .select()
+        .from(documentsTable)
+        .where(eq(documentsTable.id, req.params.documentId))
+        .limit(1);
+
+      if (!doc) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+
+      if (req.user!.role === "PATIENT") {
+        const [patient] = await db
+          .select({ id: patientsTable.id })
+          .from(patientsTable)
+          .where(
+            and(
+              eq(patientsTable.id, doc.patientId),
+              eq(patientsTable.userId, req.user!.id)
+            )
+          )
+          .limit(1);
+
+        if (!patient) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "patient_document_metadata_denied", documentId: req.params.documentId }, req);
+          res.status(403).json({ error: "Access denied" });
+          return;
+        }
+
+        res.json({
+          id: doc.id,
+          documentType: doc.documentType,
+          fileName: doc.fileName,
+          mimeType: doc.mimeType,
+          fileSize: doc.fileSize,
+          uploadDate: doc.uploadDate,
+        });
+        return;
+      }
+
+      res.json({
+        id: doc.id,
+        patientId: doc.patientId,
+        uploadedBy: doc.uploadedBy,
+        documentType: doc.documentType,
+        fileName: doc.fileName,
+        mimeType: doc.mimeType,
+        fileSize: doc.fileSize,
+        storageKey: doc.storageKey,
+        uploadDate: doc.uploadDate,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.patch(
+  "/documents/:documentId",
+  requireAuth,
+  requireRole("CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
+  auditLog("UPDATE_DOCUMENT_METADATA", (req) => ({ type: "document", id: req.params.documentId })),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const updates: Partial<typeof documentsTable.$inferInsert> = {};
+
+      if (req.body.documentType !== undefined && VALID_DOC_TYPES.includes(req.body.documentType)) {
+        updates.documentType = req.body.documentType;
+      }
+      if (req.body.fileName !== undefined) {
+        updates.fileName = sanitizeFileName(req.body.fileName);
+      }
+      if (req.body.mimeType !== undefined) updates.mimeType = req.body.mimeType;
+
+      const [updated] = await db
+        .update(documentsTable)
+        .set(updates)
+        .where(eq(documentsTable.id, req.params.documentId))
+        .returning();
+
+      if (!updated) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+
+      res.json({
+        id: updated.id,
+        patientId: updated.patientId,
+        documentType: updated.documentType,
+        fileName: updated.fileName,
+        mimeType: updated.mimeType,
+        fileSize: updated.fileSize,
+        uploadDate: updated.uploadDate,
+      });
     } catch (err) {
       next(err);
     }

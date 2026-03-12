@@ -241,6 +241,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PatientListResponse"
+    post:
+      operationId: createPatient
+      tags: [patients]
+      summary: Create patient (Care Coordinator / Super Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, firstName, lastName]
+              properties:
+                email:
+                  type: string
+                  format: email
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                dateOfBirth:
+                  type: string
+                  format: date
+                phone:
+                  type: string
+                address:
+                  type: string
+                journeyStage:
+                  $ref: "#/components/schemas/JourneyStage"
+      responses:
+        "201":
+          description: Patient created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatientDetail"
 
   /patients/me/profile:
     get:
@@ -288,6 +323,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Patient"
+    delete:
+      operationId: deletePatient
+      tags: [patients]
+      summary: Delete patient (Super Admin only)
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200":
+          description: Patient and all data deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
 
   /leads:
     get:
@@ -827,6 +875,55 @@ paths:
                 format: binary
 
   /documents/{documentId}:
+    get:
+      operationId: getDocumentMetadata
+      tags: [documents]
+      summary: Get document metadata by ID
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Document metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+    patch:
+      operationId: updateDocumentMetadata
+      tags: [documents]
+      summary: Update document metadata
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                documentType:
+                  $ref: "#/components/schemas/DocumentType"
+                fileName:
+                  type: string
+                mimeType:
+                  type: string
+      responses:
+        "200":
+          description: Document metadata updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
     delete:
       operationId: deleteDocument
       tags: [documents]

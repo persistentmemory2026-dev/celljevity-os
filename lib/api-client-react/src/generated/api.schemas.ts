@@ -623,6 +623,16 @@ export type ListPatientsParams = {
   offset?: OffsetParameter;
 };
 
+export type CreatePatientBody = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth?: string;
+  phone?: string;
+  address?: string;
+  journeyStage?: JourneyStage;
+};
+
 export type ListLeadsParams = {
   status?: ListLeadsStatus;
   source?: ListLeadsSource;
@@ -703,6 +713,12 @@ export type UploadDocumentContent200 = {
 
 export type DownloadDocumentContentParams = {
   token?: string;
+};
+
+export type UpdateDocumentMetadataBody = {
+  documentType?: DocumentType;
+  fileName?: string;
+  mimeType?: string;
 };
 
 export type ListBiomarkersParams = {
