@@ -95,6 +95,13 @@ router.get(
       const { stage, isLead, search, limit: limitStr, offset: offsetStr } = req.query;
 
       const conditions: ReturnType<typeof eq>[] = [];
+
+      if (req.user!.role === "CARE_COORDINATOR") {
+        conditions.push(eq(patientsTable.assignedCoordinatorId, req.user!.id));
+      } else if (req.user!.role === "MEDICAL_PROVIDER") {
+        conditions.push(eq(patientsTable.assignedProviderId, req.user!.id));
+      }
+
       if (stage && typeof stage === "string" && VALID_JOURNEY_STAGES.includes(stage as typeof VALID_JOURNEY_STAGES[number])) {
         conditions.push(eq(patientsTable.journeyStage, stage as typeof VALID_JOURNEY_STAGES[number]));
       }

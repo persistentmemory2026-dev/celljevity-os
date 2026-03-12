@@ -63,10 +63,32 @@ router.get(
         conditions.push(eq(quotesTable.status, status as typeof VALID_QUOTE_STATUSES[number]));
       }
 
+      if (role === "CARE_COORDINATOR") {
+        conditions.push(eq(patientsTable.assignedCoordinatorId, req.user!.id));
+      } else if (role === "MEDICAL_PROVIDER") {
+        conditions.push(eq(patientsTable.assignedProviderId, req.user!.id));
+      }
+
       const limit = Math.min(parseInt(limitStr as string) || 50, 100);
       const offset = parseInt(offsetStr as string) || 0;
 
-      const query = db.select().from(quotesTable);
+      const needsJoin = role === "CARE_COORDINATOR" || role === "MEDICAL_PROVIDER";
+      const query = needsJoin
+        ? db.select({
+            id: quotesTable.id,
+            invoiceNumber: quotesTable.invoiceNumber,
+            patientId: quotesTable.patientId,
+            createdBy: quotesTable.createdBy,
+            status: quotesTable.status,
+            issueDate: quotesTable.issueDate,
+            currency: quotesTable.currency,
+            exchangeRateUsed: quotesTable.exchangeRateUsed,
+            totalAmount: quotesTable.totalAmount,
+            notesAndTerms: quotesTable.notesAndTerms,
+            createdAt: quotesTable.createdAt,
+            updatedAt: quotesTable.updatedAt,
+          }).from(quotesTable).innerJoin(patientsTable, eq(quotesTable.patientId, patientsTable.id))
+        : db.select().from(quotesTable);
       const result = conditions.length > 0
         ? await query.where(and(...conditions)).limit(limit).offset(offset)
         : await query.limit(limit).offset(offset);
