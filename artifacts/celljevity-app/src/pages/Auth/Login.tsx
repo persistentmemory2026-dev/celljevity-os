@@ -18,9 +18,8 @@ export default function Login() {
     setErrorMsg("");
     try {
       await login({ email, password });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t("auth.invalidCredentials");
-      setErrorMsg(message);
+    } catch {
+      setErrorMsg(t("auth.invalidCredentials"));
       setPassword("");
     }
   };

@@ -25,8 +25,12 @@ export default function Register() {
         password: formData.password
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Registration failed";
-      setErrorMsg(message);
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("409") || message.toLowerCase().includes("already") || message.toLowerCase().includes("exists")) {
+        setErrorMsg(t("auth.emailTaken"));
+      } else {
+        setErrorMsg(t("auth.invalidCredentials"));
+      }
     }
   };
 

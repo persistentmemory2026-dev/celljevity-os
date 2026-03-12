@@ -82,14 +82,22 @@ export default function Biomarkers() {
     if (!data) return [];
     const ageReadings = data.filter(b => b.biomarkerType === "BIOLOGICAL_AGE" && b.valueNumeric != null);
     if (ageReadings.length === 0) return [];
+    const dob = profile?.dateOfBirth ? new Date(profile.dateOfBirth) : null;
     return [...ageReadings]
       .sort((a, b) => new Date(a.testDate).getTime() - new Date(b.testDate).getTime())
-      .map(r => ({
-        date: format(new Date(r.testDate), 'yyyy-MM'),
-        biological: r.valueNumeric,
-        treatment: r.notes || undefined,
-      }));
-  }, [biomarkersList]);
+      .map(r => {
+        const testDate = new Date(r.testDate);
+        const chronological = dob
+          ? Math.round(((testDate.getTime() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) * 10) / 10
+          : undefined;
+        return {
+          date: format(testDate, 'yyyy-MM'),
+          biological: r.valueNumeric,
+          chronological,
+          treatment: r.notes || undefined,
+        };
+      });
+  }, [biomarkersList, profile]);
 
   const telomereChartData = useMemo(() => {
     const data = biomarkersList?.data as BiomarkerReading[] | undefined;
@@ -155,6 +163,7 @@ export default function Biomarkers() {
                       }}
                     />
                     <Line type="monotone" dataKey="biological" stroke="#14B8A6" strokeWidth={3} dot={<TreatmentDot />} name={t("patient.biologicalAge")} />
+                    <Line type="step" dataKey="chronological" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name={t("patient.chronologicalAge")} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
