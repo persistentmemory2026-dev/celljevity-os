@@ -1,6 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { 
   Activity, 
   FileText, 
@@ -28,6 +30,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { t } = useTranslation();
 
   if (!user) return <>{children}</>;
 
@@ -35,29 +38,29 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     switch (user.role) {
       case "PATIENT":
         return [
-          { label: "My Journey", href: "/dashboard", icon: LayoutDashboard },
-          { label: "Biomarkers", href: "/biomarkers", icon: Activity },
-          { label: "Document Vault", href: "/documents", icon: FileText },
-          { label: "Intake Forms", href: "/intake", icon: ClipboardList },
-          { label: "Consent & Privacy", href: "/consent", icon: ShieldCheck },
+          { label: t("nav.dashboard"), href: "/dashboard", icon: LayoutDashboard },
+          { label: t("nav.biomarkers"), href: "/biomarkers", icon: Activity },
+          { label: t("nav.documents"), href: "/documents", icon: FileText },
+          { label: t("nav.intake"), href: "/intake", icon: ClipboardList },
+          { label: t("nav.consent"), href: "/consent", icon: ShieldCheck },
         ];
       case "CARE_COORDINATOR":
         return [
-          { label: "CRM Dashboard", href: "/crm", icon: LayoutDashboard },
-          { label: "Leads", href: "/leads", icon: Users },
-          { label: "Quotes & Invoices", href: "/quotes", icon: FileSignature },
-          { label: "Reports", href: "/reports", icon: Activity },
+          { label: t("nav.crm"), href: "/crm", icon: LayoutDashboard },
+          { label: t("nav.leads"), href: "/leads", icon: Users },
+          { label: t("nav.quotes"), href: "/quotes", icon: FileSignature },
+          { label: t("nav.reports"), href: "/reports", icon: Activity },
         ];
       case "MEDICAL_PROVIDER":
         return [
-          { label: "Clinical Dashboard", href: "/clinical", icon: Stethoscope },
+          { label: t("nav.clinical"), href: "/clinical", icon: Stethoscope },
         ];
       case "SUPER_ADMIN":
         return [
-          { label: "Admin Dashboard", href: "/admin", icon: LayoutDashboard },
-          { label: "Users", href: "/admin/users", icon: Users },
-          { label: "Service Catalog", href: "/admin/services", icon: Settings },
-          { label: "Audit Logs", href: "/admin/audit", icon: ShieldCheck },
+          { label: t("nav.admin"), href: "/admin", icon: LayoutDashboard },
+          { label: t("nav.users"), href: "/admin/users", icon: Users },
+          { label: t("nav.services"), href: "/admin/services", icon: Settings },
+          { label: t("nav.auditLogs"), href: "/admin/audit", icon: ShieldCheck },
         ];
       default:
         return [];
@@ -105,14 +108,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         })}
       </nav>
 
-      <div className="p-4 mt-auto">
+      <div className="p-4 mt-auto space-y-3">
+        <LanguageSwitcher />
         <Button 
           variant="ghost" 
           className="w-full justify-start text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent"
           onClick={() => logout()}
         >
-          <LogOut className="w-5 h-5 mr-3" />
-          Sign Out
+          <LogOut className="w-5 h-5 ltr:mr-3 rtl:ml-3" />
+          {t("auth.signOut")}
         </Button>
       </div>
     </div>
@@ -120,7 +124,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-sidebar text-white">
         <div className="flex items-center gap-2">
           <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Logo" className="w-6 h-6 rounded" />
@@ -131,20 +134,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </button>
       </div>
 
-      {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0",
-        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed inset-y-0 z-50 w-72 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0",
+        "ltr:left-0 rtl:right-0",
+        isMobileMenuOpen ? "translate-x-0" : "ltr:-translate-x-full rtl:translate-x-full"
       )}>
         <SidebarContent />
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-7xl mx-auto">

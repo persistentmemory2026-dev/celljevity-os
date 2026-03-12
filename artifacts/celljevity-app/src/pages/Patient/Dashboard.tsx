@@ -126,7 +126,7 @@ export default function Dashboard() {
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Placeholder cards if no data, otherwise render real data. Using static structure for demonstration of UI */}
+            {/* Biomarker quick-view cards */}
             <motion.div whileHover={{ y: -4 }}>
               <Card className="shadow-sm hover:shadow-md transition-all">
                 <CardContent className="p-6 flex items-center justify-between">

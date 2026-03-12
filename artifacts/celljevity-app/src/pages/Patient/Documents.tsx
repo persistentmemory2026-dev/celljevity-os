@@ -4,24 +4,24 @@ import {
   useListDocuments, 
   useUploadDocument, 
   useUploadDocumentContent, 
-  useDownloadDocumentContent,
-  DocumentType,
-  Document
+  useDownloadDocument,
+  DocumentType
 } from "@workspace/api-client-react";
 import { useDropzone } from "react-dropzone";
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui";
 import { FileText, UploadCloud, Download, FilePlus, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function Documents() {
+  const { t } = useTranslation();
   const { data: profile } = useGetMyProfile();
   const { data: documentsData, isLoading, refetch } = useListDocuments(
-    { documentType: undefined }, // fetch all initially
+    { documentType: undefined },
     { query: { enabled: !!profile?.id } }
   );
 
@@ -36,12 +36,12 @@ export default function Documents() {
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       if (acceptedFiles[0].size > MAX_FILE_SIZE) {
-        toast({ title: "File too large", description: "Maximum file size is 10MB", variant: "destructive" });
+        toast({ title: t("documents.fileTooLarge"), description: t("documents.fileTooLargeDesc"), variant: "destructive" });
         return;
       }
       setFile(acceptedFiles[0]);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
@@ -52,7 +52,6 @@ export default function Documents() {
   const handleUpload = async () => {
     if (!file || !profile?.id) return;
     try {
-      // 1. Create metadata
       const metaRes = await uploadDocMetadata.mutateAsync({
         data: {
           documentType: selectedType,
@@ -62,36 +61,47 @@ export default function Documents() {
         }
       });
       
-      // 2. Upload content
       if (metaRes.uploadToken) {
-        // Upload flow depends on specific custom fetch/put, but API spec defines useUploadDocumentContent
-        // Assuming we pass the token and file in some way.
-        // The spec has PUT to /api/documents/upload/{token}
         await uploadDocContent.mutateAsync({
            token: metaRes.uploadToken,
-           data: file as unknown as Blob // depending on the spec, may require Blob/FormData
+           data: file as unknown as Blob
         });
       }
 
-      toast({ title: "Upload successful", description: "Your document has been securely stored." });
+      toast({ title: t("documents.uploadSuccess"), description: t("documents.uploadSuccessDesc") });
       setUploadOpen(false);
       setFile(null);
       refetch();
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message || "An error occurred", variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred";
+      toast({ title: t("documents.uploadFailed"), description: message, variant: "destructive" });
     }
   };
 
-  const handleDownload = async (doc: Document) => {
-    // Generate download token, then redirect or download
+  const handleDownload = async (documentId: string, fileName: string) => {
     try {
-      // In a real app we might call a mutation to get token then fetch content, 
-      // but if the API returns a URL, we open it
-      // Since useDownloadDocumentContent is GET /api/documents/download/{token} we need the token first
-      // Assuming a generic way or mock for now
-      toast({ title: "Downloading...", description: "Your file is being prepared." });
-    } catch (err) {
-      toast({ title: "Download failed", variant: "destructive" });
+      const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const response = await fetch(`${baseUrl}/api/documents/${documentId}/download`, { credentials: "include" });
+      if (!response.ok) throw new Error("Download request failed");
+      const downloadInfo = await response.json();
+      
+      const contentResponse = await fetch(
+        `${baseUrl}/api/documents/download/${downloadInfo.downloadToken}`,
+        { credentials: "include" }
+      );
+      if (!contentResponse.ok) throw new Error("File download failed");
+      
+      const blob = await contentResponse.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: t("documents.downloadFailed"), variant: "destructive" });
     }
   };
 
@@ -109,34 +119,34 @@ export default function Documents() {
     <div className="space-y-8 pb-12">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold">Document Vault</h1>
-          <p className="text-muted-foreground mt-1">Securely manage your medical and administrative files.</p>
+          <h1 className="text-3xl font-display font-bold">{t("documents.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("documents.description")}</p>
         </div>
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
-              <FilePlus className="w-4 h-4" /> Upload Document
+              <FilePlus className="w-4 h-4" /> {t("documents.uploadDocument")}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Upload New Document</DialogTitle>
+              <DialogTitle>{t("documents.uploadNew")}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Document Type</label>
+                <label className="text-sm font-medium">{t("documents.documentType")}</label>
                 <select 
                   className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary/20"
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value as DocumentType)}
                 >
-                  <option value="LAB_RESULT">Lab Result</option>
-                  <option value="DOCTOR_LETTER">Doctor Letter</option>
-                  <option value="SIGNED_CONSENT">Signed Consent</option>
-                  <option value="BIOPSY_REPORT">Biopsy Report</option>
-                  <option value="INVOICE_PDF">Invoice PDF</option>
-                  <option value="IMAGING">Imaging</option>
-                  <option value="OTHER">Other</option>
+                  <option value="LAB_RESULT">{t("documents.types.LAB_RESULT")}</option>
+                  <option value="DOCTOR_LETTER">{t("documents.types.DOCTOR_LETTER")}</option>
+                  <option value="SIGNED_CONSENT">{t("documents.types.SIGNED_CONSENT")}</option>
+                  <option value="BIOPSY_REPORT">{t("documents.types.BIOPSY_REPORT")}</option>
+                  <option value="INVOICE_PDF">{t("documents.types.INVOICE_PDF")}</option>
+                  <option value="IMAGING">{t("documents.types.IMAGING")}</option>
+                  <option value="OTHER">{t("documents.types.OTHER")}</option>
                 </select>
               </div>
 
@@ -153,8 +163,8 @@ export default function Documents() {
                   <div className="text-sm font-medium text-primary">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</div>
                 ) : (
                   <div>
-                    <p className="text-sm font-medium">Drag & drop a file here, or click to select</p>
-                    <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG up to 10MB</p>
+                    <p className="text-sm font-medium">{t("documents.dragDrop")}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t("documents.fileLimit")}</p>
                   </div>
                 )}
               </div>
@@ -164,8 +174,8 @@ export default function Documents() {
                 disabled={!file || uploadDocMetadata.isPending || uploadDocContent.isPending}
                 onClick={handleUpload}
               >
-                {uploadDocMetadata.isPending || uploadDocContent.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Secure Upload
+                {uploadDocMetadata.isPending || uploadDocContent.isPending ? <Loader2 className="w-4 h-4 ltr:mr-2 rtl:ml-2 animate-spin" /> : null}
+                {t("documents.secureUpload")}
               </Button>
             </div>
           </DialogContent>
@@ -174,24 +184,24 @@ export default function Documents() {
 
       <Card className="shadow-md">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-sm text-left rtl:text-right">
             <thead className="text-xs text-muted-foreground uppercase bg-secondary/50">
               <tr>
-                <th className="px-6 py-4 font-semibold rounded-tl-xl">File Name</th>
-                <th className="px-6 py-4 font-semibold">Type</th>
-                <th className="px-6 py-4 font-semibold">Size</th>
-                <th className="px-6 py-4 font-semibold">Date Uploaded</th>
-                <th className="px-6 py-4 font-semibold text-right rounded-tr-xl">Action</th>
+                <th className="px-6 py-4 font-semibold rounded-tl-xl rtl:rounded-tr-xl rtl:rounded-tl-none">{t("documents.fileName")}</th>
+                <th className="px-6 py-4 font-semibold">{t("documents.type")}</th>
+                <th className="px-6 py-4 font-semibold">{t("documents.size")}</th>
+                <th className="px-6 py-4 font-semibold">{t("documents.dateUploaded")}</th>
+                <th className="px-6 py-4 font-semibold text-right rtl:text-left rounded-tr-xl rtl:rounded-tl-xl rtl:rounded-tr-none">{t("documents.action")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground animate-pulse">Loading documents...</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground animate-pulse">{t("common.loading")}</td></tr>
               ) : documentsData?.data?.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-12 text-center">
                     <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">Your vault is empty. Upload your first document.</p>
+                    <p className="text-muted-foreground">{t("documents.emptyVault")}</p>
                   </td>
                 </tr>
               ) : (
@@ -212,8 +222,8 @@ export default function Documents() {
                     <td className="px-6 py-4 text-muted-foreground">
                       {format(new Date(doc.uploadDate), 'MMM d, yyyy')}
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleDownload(doc)} title="Download">
+                    <td className="px-6 py-4 text-right rtl:text-left">
+                      <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.id, doc.fileName)} title="Download">
                         <Download className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                       </Button>
                     </td>

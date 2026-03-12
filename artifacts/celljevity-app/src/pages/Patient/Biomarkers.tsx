@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { format } from "date-fns";
 
-// Mock data for charts since backend might be empty initially
 const mockAgeData = [
   { date: '2023-01', biological: 45, chronological: 45 },
   { date: '2023-06', biological: 44, chronological: 45.5 },

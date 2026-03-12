@@ -259,7 +259,7 @@ function QuoteBuilder({ quoteId, onClose, services }: { quoteId: string, onClose
     doc.setFontSize(12);
     doc.text("Bill To:", 14, 45);
     doc.setFontSize(10);
-    doc.text(`Patient ID: ${quoteDetail.patientId}`, 14, 52); // Ideally fetch patient name
+    doc.text(`Patient ID: ${quoteDetail.patientId}`, 14, 52);
 
     // Table
     const tableData = quoteDetail.lineItems.map(item => [
@@ -277,10 +277,9 @@ function QuoteBuilder({ quoteId, onClose, services }: { quoteId: string, onClose
       headStyles: { fillColor: [15, 23, 42] },
     });
 
-    // Total
-    const finalY = (doc as any).lastAutoTable.finalY || 65;
+    const tableEndY = 65 + (tableData.length + 1) * 10;
     doc.setFontSize(12);
-    doc.text(`Total Amount: ${formatCurrency(quoteDetail.totalAmount, quoteDetail.currency)}`, 140, finalY + 15);
+    doc.text(`Total Amount: ${formatCurrency(quoteDetail.totalAmount, quoteDetail.currency)}`, 140, tableEndY + 15);
 
     doc.save(`Quote_${quoteDetail.invoiceNumber}.pdf`);
   };
