@@ -2,6 +2,8 @@
 
 ## Overview
 
+Celljevity Longevity Operating System — a GDPR-compliant healthcare platform with four user roles (Patient, Care Coordinator, Medical Provider, Super Admin). Patient management system with biomarker tracking, digital intake forms, service catalog, quote/invoice generation, and document vault.
+
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
 ## Stack
@@ -14,6 +16,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Database**: PostgreSQL + Drizzle ORM
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
+- **Auth**: Session-based (express-session + connect-pg-simple), bcrypt password hashing
 - **Build**: esbuild (CJS bundle)
 
 ## Structure
@@ -48,6 +51,53 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
+## Database Schema
+
+11 tables, all using UUID primary keys (`gen_random_uuid()`):
+
+- **users** — email, bcrypt passwordHash, role (PATIENT/CARE_COORDINATOR/MEDICAL_PROVIDER/SUPER_ADMIN), isActive
+- **patients** — linked to users, celljevityId (auto-generated), journeyStage (ACQUISITION→ONBOARDING→IN_TREATMENT→FOLLOW_UP→ALUMNI), isLead, medical history, assigned coordinator/provider
+- **service_catalog** — category (NK_CELLS/PROMETHEUS/LONGEVITY_PANEL/PARTNER_SERVICE/OTHER), pricing, partner info
+- **quotes** — invoice/quote with auto-incrementing INV-YYYYMMDD-XXXX number, status (DRAFT→SENT→ACCEPTED→REJECTED→CANCELLED→PAID), currency, exchange rate
+- **invoice_line_items** — per-quote line items with service ref, qty, unit price, auto-calculated line total
+- **documents** — document vault with category, storageKey pattern, metadata JSON, file tracking
+- **audit_logs** — GDPR audit trail (action, entity, before/after snapshots, IP, user agent)
+- **security_events** — login/logout/failed attempts, IP tracking
+- **biomarker_results** — biomarker tracking with test date, category, results JSON
+- **intake_forms** — digital intake forms with versioned form data JSON
+- **consent_records** — GDPR consent with type, version, IP recording, revocation support
+
+## API Endpoints
+
+All routes mounted under `/api`:
+
+- **Auth**: POST /auth/register, POST /auth/login, POST /auth/logout, GET /auth/me
+- **Users**: GET /users, GET /users/:id, PATCH /users/:id, GET /users/audit-logs (admin)
+- **Patients**: GET /patients, POST /patients, GET /patients/:id, PATCH /patients/:id, GET /patients/me/profile
+- **Services**: GET /services, POST /services, GET /services/:id, PATCH /services/:id
+- **Quotes**: GET /quotes, POST /quotes, GET /quotes/:id, PATCH /quotes/:id/status, POST /quotes/:id/line-items, DELETE /quotes/:id/line-items/:lineItemId
+- **Documents**: GET /documents, POST /documents, GET /documents/:id, DELETE /documents/:id
+- **Intake**: GET /intake, POST /intake, GET /intake/:id
+- **Biomarkers**: GET /biomarkers, POST /biomarkers, GET /biomarkers/:id
+- **Consent**: GET /consent, POST /consent, POST /consent/:id/revoke
+- **GDPR**: GET /gdpr/export (Article 20), POST /gdpr/delete (Article 17)
+- **Health**: GET /healthz
+
+## Middleware
+
+- **requireAuth** — session validation with 30-min inactivity timeout
+- **requireRole(roles)** — RBAC by user role
+- **requireSelfOrRole(paramName, roles)** — allows self-access or specified roles
+- **auditLog(action)** — logs data changes with before/after snapshots
+- **logSecurityEvent(eventType)** — tracks auth events
+
+## Session Management
+
+- Cookie name: `celljevity.sid`
+- Store: PostgreSQL via connect-pg-simple (`user_sessions` table)
+- 30-minute inactivity timeout (sliding window)
+- HTTP-only, secure, SameSite=lax cookies
+
 ## Packages
 
 ### `artifacts/api-server` (`@workspace/api-server`)
@@ -55,12 +105,13 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, session, routes at `/api`
+- Routes: `src/routes/index.ts` mounts sub-routers
+- Middleware: `src/middlewares/` — auth.ts, rbac.ts, audit.ts
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, bcrypt, etc.) and externalizes the rest
 
 ### `lib/db` (`@workspace/db`)
 
@@ -68,7 +119,7 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
+- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas
 - `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
 
@@ -85,11 +136,11 @@ Run codegen: `pnpm --filter @workspace/api-spec run codegen`
 
 ### `lib/api-zod` (`@workspace/api-zod`)
 
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
+Generated Zod schemas from the OpenAPI spec. Used by `api-server` for response validation.
 
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+Generated React Query hooks and fetch client from the OpenAPI spec.
 
 ### `scripts` (`@workspace/scripts`)
 

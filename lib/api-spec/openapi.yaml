@@ -3,20 +3,40 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Celljevity Longevity OS API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: patients
+    description: Patient CRM
+  - name: services
+    description: Service catalog
+  - name: quotes
+    description: Quotes & invoicing
+  - name: documents
+    description: Document management
+  - name: intake
+    description: Intake forms
+  - name: biomarkers
+    description: Biomarker tracking
+  - name: consent
+    description: Consent management
+  - name: gdpr
+    description: GDPR data rights
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,7 +44,773 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Log out
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users (Super Admin only)
+      parameters:
+        - name: role
+          in: query
+          schema:
+            $ref: "#/components/schemas/UserRole"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create user (Super Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/{userId}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user (Super Admin only)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/audit-logs:
+    get:
+      operationId: getAuditLogs
+      tags: [users]
+      summary: Get audit logs (Super Admin only)
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogListResponse"
+
+  /patients:
+    get:
+      operationId: listPatients
+      tags: [patients]
+      summary: List patients
+      parameters:
+        - name: stage
+          in: query
+          schema:
+            $ref: "#/components/schemas/JourneyStage"
+        - name: isLead
+          in: query
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Patient list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatientListResponse"
+
+  /patients/me/profile:
+    get:
+      operationId: getMyProfile
+      tags: [patients]
+      summary: Get own patient profile
+      responses:
+        "200":
+          description: Patient profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Patient"
+
+  /patients/{patientId}:
+    get:
+      operationId: getPatient
+      tags: [patients]
+      summary: Get patient detail
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200":
+          description: Patient detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatientDetail"
+    patch:
+      operationId: updatePatient
+      tags: [patients]
+      summary: Update patient
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePatientRequest"
+      responses:
+        "200":
+          description: Patient updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Patient"
+
+  /services:
+    get:
+      operationId: listServices
+      tags: [services]
+      summary: List services
+      parameters:
+        - name: category
+          in: query
+          schema:
+            $ref: "#/components/schemas/ServiceCategory"
+        - name: activeOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Service list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceListResponse"
+    post:
+      operationId: createService
+      tags: [services]
+      summary: Create service (Super Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceRequest"
+      responses:
+        "201":
+          description: Service created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+
+  /services/{serviceId}:
+    get:
+      operationId: getService
+      tags: [services]
+      summary: Get service detail
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Service detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+    patch:
+      operationId: updateService
+      tags: [services]
+      summary: Update service (Super Admin only)
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceRequest"
+      responses:
+        "200":
+          description: Service updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+
+  /quotes:
+    get:
+      operationId: listQuotes
+      tags: [quotes]
+      summary: List quotes
+      parameters:
+        - name: patientId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/QuoteStatus"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Quote list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteListResponse"
+    post:
+      operationId: createQuote
+      tags: [quotes]
+      summary: Create quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuoteRequest"
+      responses:
+        "201":
+          description: Quote created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /quotes/{quoteId}:
+    get:
+      operationId: getQuote
+      tags: [quotes]
+      summary: Get quote with line items
+      parameters:
+        - $ref: "#/components/parameters/QuoteId"
+      responses:
+        "200":
+          description: Quote detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteDetail"
+    patch:
+      operationId: updateQuote
+      tags: [quotes]
+      summary: Update quote
+      parameters:
+        - $ref: "#/components/parameters/QuoteId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuoteRequest"
+      responses:
+        "200":
+          description: Quote updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /quotes/{quoteId}/line-items:
+    post:
+      operationId: addLineItem
+      tags: [quotes]
+      summary: Add line item to quote
+      parameters:
+        - $ref: "#/components/parameters/QuoteId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLineItemRequest"
+      responses:
+        "201":
+          description: Line item added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LineItem"
+
+  /quotes/{quoteId}/line-items/{lineItemId}:
+    delete:
+      operationId: deleteLineItem
+      tags: [quotes]
+      summary: Delete line item
+      parameters:
+        - $ref: "#/components/parameters/QuoteId"
+        - name: lineItemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Line item deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /patients/{patientId}/documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List patient documents
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - name: documentType
+          in: query
+          schema:
+            $ref: "#/components/schemas/DocumentType"
+      responses:
+        "200":
+          description: Document list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentListResponse"
+    post:
+      operationId: uploadDocument
+      tags: [documents]
+      summary: Upload document metadata and get signed URL
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadDocumentRequest"
+      responses:
+        "201":
+          description: Document created with upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadDocumentResponse"
+
+  /documents/{documentId}/download:
+    get:
+      operationId: downloadDocument
+      tags: [documents]
+      summary: Get time-limited download URL
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Download URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadDocumentResponse"
+
+  /documents/{documentId}:
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      summary: Delete document
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Document deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /patients/{patientId}/intake:
+    get:
+      operationId: getIntakeForm
+      tags: [intake]
+      summary: Get intake form
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200":
+          description: Intake form
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntakeForm"
+    post:
+      operationId: createIntakeForm
+      tags: [intake]
+      summary: Create intake form
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntakeFormData"
+      responses:
+        "201":
+          description: Intake form created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntakeForm"
+    patch:
+      operationId: updateIntakeForm
+      tags: [intake]
+      summary: Update intake form
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntakeFormData"
+      responses:
+        "200":
+          description: Intake form updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntakeForm"
+
+  /patients/{patientId}/intake/complete:
+    post:
+      operationId: completeIntakeForm
+      tags: [intake]
+      summary: Complete intake and advance journey
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200":
+          description: Intake completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntakeForm"
+
+  /patients/{patientId}/biomarkers:
+    get:
+      operationId: listBiomarkers
+      tags: [biomarkers]
+      summary: List biomarker results
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/BiomarkerType"
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Biomarker list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiomarkerListResponse"
+    post:
+      operationId: addBiomarkerResult
+      tags: [biomarkers]
+      summary: Add biomarker result (Medical Provider only)
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBiomarkerRequest"
+      responses:
+        "201":
+          description: Biomarker added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiomarkerResult"
+
+  /biomarkers/{biomarkerId}:
+    delete:
+      operationId: deleteBiomarkerResult
+      tags: [biomarkers]
+      summary: Delete biomarker result
+      parameters:
+        - name: biomarkerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Biomarker deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /patients/{patientId}/consents:
+    get:
+      operationId: listConsents
+      tags: [consent]
+      summary: List consent records
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200":
+          description: Consent list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentListResponse"
+    post:
+      operationId: grantConsent
+      tags: [consent]
+      summary: Grant consent
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrantConsentRequest"
+      responses:
+        "201":
+          description: Consent granted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentRecord"
+
+  /consents/{consentId}/revoke:
+    patch:
+      operationId: revokeConsent
+      tags: [consent]
+      summary: Revoke consent
+      parameters:
+        - name: consentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Consent revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentRecord"
+
+  /gdpr/export:
+    get:
+      operationId: gdprExport
+      tags: [gdpr]
+      summary: Export all personal data (GDPR Article 20)
+      responses:
+        "200":
+          description: Data export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GdprExportResponse"
+
+  /gdpr/delete:
+    post:
+      operationId: gdprDelete
+      tags: [gdpr]
+      summary: Delete all personal data (GDPR Article 17)
+      responses:
+        "200":
+          description: Data deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GdprDeleteResponse"
+
 components:
+  parameters:
+    PatientId:
+      name: patientId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    QuoteId:
+      name: quoteId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 50
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +820,863 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    UserRole:
+      type: string
+      enum: [PATIENT, CARE_COORDINATOR, MEDICAL_PROVIDER, SUPER_ADMIN]
+
+    JourneyStage:
+      type: string
+      enum: [ACQUISITION, INTAKE, DIAGNOSTICS, PLANNING, TREATMENT, FOLLOW_UP]
+
+    ServiceCategory:
+      type: string
+      enum: [EXOSOMES, PROMETHEUS, NK_CELLS, DIAGNOSTICS, OTHER]
+
+    QuoteStatus:
+      type: string
+      enum: [DRAFT, PENDING_SIGNATURE, ACCEPTED, PAID, CANCELLED]
+
+    DocumentType:
+      type: string
+      enum: [LAB_RESULT, DOCTOR_LETTER, SIGNED_CONSENT, BIOPSY_REPORT, INVOICE_PDF, IMAGING, OTHER]
+
+    BiomarkerType:
+      type: string
+      enum:
+        - DNA_METHYLATION_AGE
+        - TELOMERE_LENGTH
+        - NK_CELL_COUNT
+        - TUMOR_MARKER_CA125
+        - TUMOR_MARKER_PSA
+        - LDL_CHOLESTEROL
+        - HDL_CHOLESTEROL
+        - TRIGLYCERIDES
+        - FASTING_GLUCOSE
+        - HBA1C
+        - CRP
+        - VITAMIN_D
+        - TESTOSTERONE
+        - ESTRADIOL
+        - IGF1
+        - DHEA_S
+        - CORTISOL
+        - TSH
+        - FREE_T3
+        - FREE_T4
+        - LIVER_ALT
+        - LIVER_AST
+        - KIDNEY_CREATININE
+        - KIDNEY_GFR
+        - OTHER
+
+    BiomarkerStatus:
+      type: string
+      enum: [OPTIMAL, NORMAL, WARNING, CRITICAL]
+
+    ConsentType:
+      type: string
+      enum: [DATA_PROCESSING, MEDICAL_DATA_SHARING, MARKETING_COMMUNICATIONS, TERMS_AND_CONDITIONS, TREATMENT_CONSENT]
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        firstName:
+          type: string
+        lastName:
+          type: string
+      required: [email, password, firstName, lastName]
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        firstName:
+          type: string
+        lastName:
+          type: string
+        isActive:
+          type: boolean
+      required: [id, email, role, firstName, lastName]
+
+    UserListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required: [data, total, limit, offset]
+
+    CreateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+      required: [email, password, firstName, lastName, role]
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        isActive:
+          type: boolean
+        password:
+          type: string
+
+    Patient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        celljevityId:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        journeyStage:
+          $ref: "#/components/schemas/JourneyStage"
+        medicalHistorySummary:
+          type: string
+          nullable: true
+        assignedCoordinatorId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedProviderId:
+          type: string
+          format: uuid
+          nullable: true
+        isLead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, celljevityId, journeyStage, isLead, createdAt, updatedAt]
+
+    PatientDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        celljevityId:
+          type: string
+        journeyStage:
+          $ref: "#/components/schemas/JourneyStage"
+        isLead:
+          type: boolean
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        medicalHistorySummary:
+          type: string
+          nullable: true
+        assignedCoordinatorId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedProviderId:
+          type: string
+          format: uuid
+          nullable: true
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, celljevityId, journeyStage, isLead, firstName, lastName, email, createdAt, updatedAt]
+
+    PatientListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PatientDetail"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required: [data, total, limit, offset]
+
+    UpdatePatientRequest:
+      type: object
+      properties:
+        journeyStage:
+          $ref: "#/components/schemas/JourneyStage"
+        isLead:
+          type: boolean
+        assignedCoordinatorId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedProviderId:
+          type: string
+          format: uuid
+          nullable: true
+        dateOfBirth:
+          type: string
+          format: date
+        phone:
+          type: string
+        address:
+          type: string
+        medicalHistorySummary:
+          type: string
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        category:
+          $ref: "#/components/schemas/ServiceCategory"
+        name:
+          type: string
+        defaultDescription:
+          type: string
+          nullable: true
+        basePriceEur:
+          type: string
+        isActive:
+          type: boolean
+        isPartnerService:
+          type: boolean
+        partnerName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, category, name, basePriceEur, isActive, isPartnerService, createdAt, updatedAt]
+
+    ServiceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Service"
+      required: [data]
+
+    CreateServiceRequest:
+      type: object
+      properties:
+        category:
+          $ref: "#/components/schemas/ServiceCategory"
+        name:
+          type: string
+        defaultDescription:
+          type: string
+        basePriceEur:
+          type: number
+        isPartnerService:
+          type: boolean
+        partnerName:
+          type: string
+      required: [category, name, basePriceEur]
+
+    UpdateServiceRequest:
+      type: object
+      properties:
+        category:
+          $ref: "#/components/schemas/ServiceCategory"
+        name:
+          type: string
+        defaultDescription:
+          type: string
+        basePriceEur:
+          type: number
+        isActive:
+          type: boolean
+        isPartnerService:
+          type: boolean
+        partnerName:
+          type: string
+
+    Quote:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoiceNumber:
+          type: string
+        patientId:
+          type: string
+          format: uuid
+        createdBy:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/QuoteStatus"
+        issueDate:
+          type: string
+          format: date
+        currency:
+          type: string
+        exchangeRateUsed:
+          type: string
+        totalAmount:
+          type: string
+        notesAndTerms:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, invoiceNumber, patientId, createdBy, status, issueDate, currency, exchangeRateUsed, totalAmount, createdAt, updatedAt]
+
+    LineItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quoteId:
+          type: string
+          format: uuid
+        serviceId:
+          type: string
+          format: uuid
+        customDescription:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        unitPrice:
+          type: string
+        lineTotal:
+          type: string
+      required: [id, quoteId, serviceId, quantity, unitPrice, lineTotal]
+
+    QuoteDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoiceNumber:
+          type: string
+        patientId:
+          type: string
+          format: uuid
+        createdBy:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/QuoteStatus"
+        issueDate:
+          type: string
+          format: date
+        currency:
+          type: string
+        exchangeRateUsed:
+          type: string
+        totalAmount:
+          type: string
+        notesAndTerms:
+          type: string
+          nullable: true
+        lineItems:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              serviceId:
+                type: string
+                format: uuid
+              customDescription:
+                type: string
+                nullable: true
+              quantity:
+                type: integer
+              unitPrice:
+                type: string
+              lineTotal:
+                type: string
+              serviceName:
+                type: string
+                nullable: true
+              serviceCategory:
+                $ref: "#/components/schemas/ServiceCategory"
+            required: [id, serviceId, quantity, unitPrice, lineTotal]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, invoiceNumber, patientId, createdBy, status, issueDate, currency, totalAmount, lineItems, createdAt, updatedAt]
+
+    QuoteListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Quote"
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required: [data, limit, offset]
+
+    CreateQuoteRequest:
+      type: object
+      properties:
+        patientId:
+          type: string
+          format: uuid
+        currency:
+          type: string
+        exchangeRateUsed:
+          type: number
+        notesAndTerms:
+          type: string
+        issueDate:
+          type: string
+          format: date
+      required: [patientId]
+
+    UpdateQuoteRequest:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/QuoteStatus"
+        currency:
+          type: string
+        exchangeRateUsed:
+          type: number
+        notesAndTerms:
+          type: string
+        totalAmount:
+          type: number
+
+    CreateLineItemRequest:
+      type: object
+      properties:
+        serviceId:
+          type: string
+          format: uuid
+        customDescription:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+      required: [serviceId, unitPrice]
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        uploadedBy:
+          type: string
+          format: uuid
+        documentType:
+          $ref: "#/components/schemas/DocumentType"
+        fileName:
+          type: string
+        mimeType:
+          type: string
+          nullable: true
+        fileSize:
+          type: integer
+          nullable: true
+        uploadDate:
+          type: string
+          format: date-time
+      required: [id, patientId, uploadedBy, documentType, fileName, uploadDate]
+
+    DocumentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+      required: [data]
+
+    UploadDocumentRequest:
+      type: object
+      properties:
+        documentType:
+          $ref: "#/components/schemas/DocumentType"
+        fileName:
+          type: string
+        mimeType:
+          type: string
+        fileSize:
+          type: integer
+      required: [documentType, fileName]
+
+    UploadDocumentResponse:
+      type: object
+      properties:
+        document:
+          $ref: "#/components/schemas/Document"
+        uploadUrl:
+          type: string
+      required: [document, uploadUrl]
+
+    DownloadDocumentResponse:
+      type: object
+      properties:
+        fileName:
+          type: string
+        mimeType:
+          type: string
+          nullable: true
+        downloadUrl:
+          type: string
+        expiresIn:
+          type: integer
+      required: [fileName, downloadUrl, expiresIn]
+
+    IntakeForm:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        personalProfile:
+          type: object
+          nullable: true
+        medicalHistory:
+          type: object
+          nullable: true
+        consentData:
+          type: object
+          nullable: true
+        isComplete:
+          type: boolean
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, patientId, isComplete, createdAt, updatedAt]
+
+    IntakeFormData:
+      type: object
+      properties:
+        personalProfile:
+          type: object
+        medicalHistory:
+          type: object
+        consentData:
+          type: object
+
+    BiomarkerResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        testDate:
+          type: string
+          format: date
+        biomarkerType:
+          $ref: "#/components/schemas/BiomarkerType"
+        valueNumeric:
+          type: string
+        unit:
+          type: string
+        referenceRangeMin:
+          type: string
+          nullable: true
+        referenceRangeMax:
+          type: string
+          nullable: true
+        statusFlag:
+          $ref: "#/components/schemas/BiomarkerStatus"
+        enteredBy:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, patientId, testDate, biomarkerType, valueNumeric, unit, statusFlag, enteredBy, createdAt]
+
+    BiomarkerListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/BiomarkerResult"
+      required: [data]
+
+    CreateBiomarkerRequest:
+      type: object
+      properties:
+        testDate:
+          type: string
+          format: date
+        biomarkerType:
+          $ref: "#/components/schemas/BiomarkerType"
+        valueNumeric:
+          type: number
+        unit:
+          type: string
+        referenceRangeMin:
+          type: number
+        referenceRangeMax:
+          type: number
+      required: [testDate, biomarkerType, valueNumeric, unit]
+
+    ConsentRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        consentType:
+          $ref: "#/components/schemas/ConsentType"
+        version:
+          type: string
+        granted:
+          type: boolean
+        ipAddress:
+          type: string
+          nullable: true
+        jurisdiction:
+          type: string
+          nullable: true
+        grantedAt:
+          type: string
+          format: date-time
+          nullable: true
+        revokedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, patientId, consentType, version, granted, createdAt]
+
+    ConsentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsentRecord"
+      required: [data]
+
+    GrantConsentRequest:
+      type: object
+      properties:
+        consentType:
+          $ref: "#/components/schemas/ConsentType"
+        version:
+          type: string
+        granted:
+          type: boolean
+        jurisdiction:
+          type: string
+      required: [consentType]
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        action:
+          type: string
+        targetResourceType:
+          type: string
+          nullable: true
+        targetResourceId:
+          type: string
+          nullable: true
+        details:
+          type: string
+          nullable: true
+        ipAddress:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+      required: [id, action, timestamp]
+
+    AuditLogListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLog"
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required: [data, limit, offset]
+
+    GdprExportResponse:
+      type: object
+      properties:
+        exportDate:
+          type: string
+          format: date-time
+        user:
+          type: object
+        patient:
+          type: object
+        documents:
+          type: array
+          items:
+            type: object
+        intakeForm:
+          type: object
+          nullable: true
+        biomarkers:
+          type: array
+          items:
+            type: object
+        consents:
+          type: array
+          items:
+            type: object
+        quotes:
+          type: array
+          items:
+            type: object
+      required: [exportDate]
+
+    GdprDeleteResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        deletedResources:
+          type: array
+          items:
+            type: string
+      required: [message, deletedResources]
