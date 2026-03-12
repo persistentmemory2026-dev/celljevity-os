@@ -1,0 +1,105 @@
+Here is the foundational database schema designed specifically for the Celljevity Longevity OS.
+
+This schema uses standard relational database concepts (like those used in PostgreSQL or MySQL), making it perfect to feed directly into Replit along with your PRD. I have explicitly included the tables required for HIPAA compliance (like Audit Logs and secure Document tracking).
+
+---
+
+### Copy and Paste this Database Schema into Replit:
+
+> **Database Schema Definition for Celljevity OS**
+> Please implement the following relational database schema. Ensure that any fields containing Protected Health Information (PHI) are encrypted at rest, and use UUIDs for all primary keys to prevent ID enumeration.
+> ---
+> 
+> 
+> **1. Table: `Users**`
+> *(Manages authentication and Role-Based Access Control - RBAC)*
+> * `user_id` (UUID, Primary Key)
+> * `email` (String, Unique)
+> * `password_hash` (String)
+> * `role` (Enum: 'PATIENT', 'CARE_COORDINATOR', 'MEDICAL_PROVIDER', 'SUPER_ADMIN')
+> * `first_name` (String)
+> * `last_name` (String)
+> * `created_at` (Timestamp)
+> * `last_login` (Timestamp)
+> 
+> 
+> **2. Table: `Patients**`
+> *(Stores clinical and journey data. Links to the `Users` table for login credentials)*
+> * `patient_id` (UUID, Primary Key)
+> * `user_id` (UUID, Foreign Key -> `Users.user_id`)
+> * `celljevity_id` (String, Unique) *// e.g., "CELL-20251221-173558"*
+> * `date_of_birth` (Date, Encrypted)
+> * `phone_number` (String, Encrypted)
+> * `address` (Text, Encrypted)
+> * `journey_stage` (Enum: 'ACQUISITION', 'INTAKE', 'DIAGNOSTICS', 'PLANNING', 'TREATMENT', 'FOLLOW_UP')
+> * `medical_history_summary` (Text, Encrypted)
+> * `assigned_coordinator_id` (UUID, Foreign Key -> `Users.user_id`)
+> * `assigned_provider_id` (UUID, Foreign Key -> `Users.user_id`)
+> 
+> 
+> **3. Table: `ServiceCatalog**`
+> *(The master list of treatments and diagnostics)*
+> * `service_id` (String/UUID, Primary Key) *// e.g., 'nk_plus', 'exo_drinks'*
+> * `category` (Enum: 'EXOSOMES', 'PROMETHEUS', 'NK_CELLS', 'DIAGNOSTICS', 'OTHER')
+> * `name` (String)
+> * `default_description` (Text)
+> * `base_price_eur` (Decimal)
+> * `is_active` (Boolean, Default: True)
+> 
+> 
+> **4. Table: `Quotes_Invoices**`
+> *(Stores the generated quotes and final invoices)*
+> * `invoice_id` (UUID, Primary Key)
+> * `invoice_number` (String, Unique)
+> * `patient_id` (UUID, Foreign Key -> `Patients.patient_id`)
+> * `created_by` (UUID, Foreign Key -> `Users.user_id`)
+> * `status` (Enum: 'DRAFT', 'PENDING_SIGNATURE', 'ACCEPTED', 'PAID', 'CANCELLED')
+> * `issue_date` (Date)
+> * `currency` (String) *// e.g., 'EUR', 'USD'*
+> * `exchange_rate_used` (Decimal) *// To lock in the conversion rate at the time of creation*
+> * `total_amount` (Decimal)
+> * `notes_and_terms` (Text)
+> 
+> 
+> **5. Table: `Invoice_LineItems**`
+> *(The specific treatments assigned to a quote/invoice)*
+> * `line_item_id` (UUID, Primary Key)
+> * `invoice_id` (UUID, Foreign Key -> `Quotes_Invoices.invoice_id`)
+> * `service_id` (String/UUID, Foreign Key -> `ServiceCatalog.service_id`)
+> * `custom_description` (Text) *// Allows doctors/admins to override the default catalog description*
+> * `quantity` (Integer)
+> * `unit_price` (Decimal) *// Stored in the invoice's chosen currency*
+> * `line_total` (Decimal)
+> 
+> 
+> **6. Table: `Documents**`
+> *(HIPAA-compliant file tracking for lab results, doctor letters, and signed quotes)*
+> * `document_id` (UUID, Primary Key)
+> * `patient_id` (UUID, Foreign Key -> `Patients.patient_id`)
+> * `uploaded_by` (UUID, Foreign Key -> `Users.user_id`)
+> * `document_type` (Enum: 'LAB_RESULT', 'DOCTOR_LETTER', 'SIGNED_CONSENT', 'BIOPSY_REPORT', 'INVOICE_PDF')
+> * `file_name` (String)
+> * `storage_key` (String) *// The secure bucket path/key (e.g., AWS S3 key). MUST NOT be a public URL.*
+> * `upload_date` (Timestamp)
+> 
+> 
+> **7. Table: `AuditLogs**`
+> *(CRITICAL FOR HIPAA: Tracks who accessed or changed what data and when)*
+> * `log_id` (UUID, Primary Key)
+> * `user_id` (UUID, Foreign Key -> `Users.user_id`) *// Who performed the action*
+> * `action` (String) *// e.g., 'VIEWED_PATIENT_RECORD', 'GENERATED_QUOTE', 'DOWNLOADED_LAB_RESULT'*
+> * `target_resource_id` (String) *// e.g., The specific patient_id or document_id that was accessed*
+> * `timestamp` (Timestamp)
+> * `ip_address` (String)
+> 
+> 
+
+---
+
+### Why this structure works perfectly for Celljevity:
+
+1. **HIPAA Built-In:** The `AuditLogs` table and the distinction between `Users` and `Patients` ensures you can track every time a staff member views a medical record. The `Documents` table specifically requests secure storage keys instead of public web links.
+2. **Flexible Invoicing:** By splitting `Quotes_Invoices` and `Invoice_LineItems`, your team can create a quote, pull the base price from the `ServiceCatalog`, but still manually edit the `custom_description` or `unit_price` for VIP patients without permanently altering your master price list.
+3. **Journey Tracking:** The `journey_stage` enum in the Patients table allows your CRM dashboard to instantly filter patients by where they are in the loop (e.g., "Show me everyone in the 'FOLLOW_UP' stage").
+
+This, combined with the PRD, will give Replit's AI the exact architectural blueprint it needs. Are you ready to dive into Replit, or would you like to map out the "Progress & Biomarker Tracker" logic so patients can visualize their results?

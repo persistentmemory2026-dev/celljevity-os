@@ -1,0 +1,57 @@
+---
+title: Celljevity Platform Architecture
+---
+flowchart TB
+    subgraph PATIENT["👤 PATIENT LAYER - MyCelljevity Portal"]
+        P1[Dashboard & Journey Overview]
+        P2[Document Upload & Storage]
+        P3[Appointment Scheduling]
+        P4[Treatment History & Results]
+        P5[Secure Messaging]
+        P6[Education & Resources]
+    end
+    
+    subgraph ENGINE["⚙️ JOURNEY ENGINE"]
+        E1[Intake Workflow]
+        E2[Assessment Logic]
+        E3[Protocol Builder]
+        E4[Reminder System]
+        E5[Progress Tracker]
+    end
+    
+    subgraph ADMIN["🏥 ADMIN / OPS LAYER"]
+        A1[Patient CRM]
+        A2[Treatment Scheduler]
+        A3[Quote Generator]
+        A4[Provider Coordinator]
+        A5[Billing & Invoicing]
+        A6[Reporting Dashboard]
+    end
+    
+    subgraph CATALOG["📦 SERVICE CATALOG"]
+        direction LR
+        C1[NK Cell Therapy]
+        C2[Prometheus Cells]
+        C3[Exosomes]
+        C4[Diagnostics]
+        C5[Local Partners]
+    end
+    
+    subgraph EXTERNAL["🌐 EXTERNAL INTEGRATIONS"]
+        X1[Payment Gateway]
+        X2[Lab Systems API]
+        X3[Calendar/Scheduling]
+        X4[Email/SMS]
+        X5[Video Consultation]
+    end
+    
+    PATIENT <--> ENGINE
+    ENGINE <--> ADMIN
+    ADMIN <--> CATALOG
+    ADMIN <--> EXTERNAL
+    
+    style PATIENT fill:#e3f2fd,stroke:#1565c0
+    style ENGINE fill:#fff3e0,stroke:#e65100
+    style ADMIN fill:#f3e5f5,stroke:#7b1fa2
+    style CATALOG fill:#e8f5e9,stroke:#2e7d32
+    style EXTERNAL fill:#fce4ec,stroke:#c2185b

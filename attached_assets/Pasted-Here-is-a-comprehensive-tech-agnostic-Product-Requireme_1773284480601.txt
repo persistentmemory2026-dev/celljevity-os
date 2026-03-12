@@ -1,0 +1,99 @@
+Here is a comprehensive, tech-agnostic Product Requirements Document (PRD) designed specifically to be fed into Replit (or its AI agent). It incorporates your architecture, the patient journey flow, distinct user roles, and strict HIPAA compliance guidelines.
+
+---
+
+### Copy and Paste this PRD into Replit:
+
+> **Project: Build the "Celljevity Longevity Operating System"**
+> **Product Vision:**
+> Build a highly secure, scalable, and proactive "Longevity Operating System" that elevates the clinic to a Cleveland Clinic standard. This platform will transition patient management from a reactive, one-off treatment model to a proactive, lifelong relationship (The "Longevity Loop").
+> 
+> 
+> **Tech Stack Guidelines:**
+> Please choose the most robust, secure, and modern full-stack technologies suitable for healthcare applications (e.g., React/Next.js, Node.js/Python, and a relational database like PostgreSQL). The architecture must support strict data separation and secure document handling.
+> ---
+> 
+> 
+> ### 1. User Roles & Access Control (RBAC)
+> 
+> 
+> The system must implement Role-Based Access Control (RBAC) from day one to ensure HIPAA compliance.
+> * **Patient:** Can only access their own "MyCelljevity" portal. Can view their timeline, upload medical history, securely message staff, view approved quotes/invoices, and track biomarker progress.
+> * **Care Coordinator (Admin/Ops):** Manages the CRM, scheduling, logistics, non-medical intake workflows, and billing/invoicing. Cannot alter medical protocols.
+> 
+> 
+> * **Medical Provider (Doctor/Specialist):** Has access to clinical data. Reviews uploaded labs/documents, uses the Protocol Builder to prescribe treatments, and tracks patient outcomes.
+> 
+> 
+> * **Super Admin:** System configuration, managing the Service Catalog (pricing/products), and user access management.
+> 
+> 
+> ---
+> 
+> 
+> ### 2. Core Platform Modules
+> 
+> 
+> 
+> **Module A: Patient Layer ("MyCelljevity" Portal)** * **Secure Login & Dashboard:** A Cleveland Clinic-style dashboard showing "My Journey", upcoming appointments, and action items.
+> * **Document Vault:** Secure upload and storage for doctor's letters, past diagnoses, and lab results.
+> * **Progress & Biomarker Tracker:** Visual representation of diagnostic results over time (e.g., biological age, telomere length).
+> 
+> 
+> 
+> **Module B: Journey Engine (Business Logic)** * **Intake Workflow:** Digital forms capturing medical history, goals, and terms/conditions sign-offs.
+> * **Protocol Builder:** A tool for medical staff to construct personalized treatment plans (selecting NK Cells, Prometheus, Exosomes, etc.) based on diagnostics.
+> * **Automated Reminder System:** Logic that triggers proactive follow-ups based on treatment timelines (e.g., "It has been 6 months, time for repeat diagnostics").
+> 
+> 
+> 
+> **Module C: Admin / Ops Layer (Backend)** * **Patient CRM:** Centralized view of all patients, their current journey phase (Acquisition -> Intake -> Diagnostics -> Planning -> Treatment -> Follow-up).
+> * **Quote & Invoice Generator:** Dynamically pulls from the "Service Catalog" based on the doctor's Protocol. Converts prices dynamically, allows editable descriptions, and exports clean PDFs (hiding UI elements).
+> * **Multi-Provider Scheduler:** Drag-and-drop calendar to coordinate patient travel, clinic rooms, and specific biological asset preparation.
+> 
+> 
+> 
+> **Module D: Service Catalog** * A centralized database of treatments (NK Cell Therapy, Prometheus Cells, Exosomes, Diagnostics, etc.) with associated base prices and descriptions.
+> 
+> 
+> ---
+> 
+> 
+> ### 3. HIPAA & Security Requirements
+> 
+> 
+> Because this handles Protected Health Information (PHI), the application MUST strictly adhere to the following:
+> * **Data Encryption:** All data must be encrypted in transit (HTTPS/TLS) and at rest (database-level encryption).
+> * **Audit Trails:** Every action (viewing a patient record, modifying a quote, downloading a lab result) must be logged with a timestamp and user ID.
+> * **Secure File Storage:** Uploaded documents (biopsies, lab results) must NOT be stored with public URLs. They must require authenticated, time-limited signed URLs to access.
+> * **Session Management:** Implement secure, HTTP-only cookies or strict JWTs with automatic timeout/logout after periods of inactivity.
+> * **No Third-Party Leakage:** Do not send PHI to external non-compliant APIs (e.g., standard public AI endpoints or analytics trackers) without explicit configuration.
+> 
+> 
+> ---
+> 
+> 
+> ### 4. MVP Scope (Phase 1 Build)
+> 
+> 
+> For the initial Replit deployment, focus on the **"Patient Dashboard Light"** and core backend operations.
+> 
+> 
+> * **Build:** The secure login system and RBAC framework.
+> * **Build:** The online Intake Form and secure Document Upload vault.
+> 
+> 
+> * **Build:** The Quote/Invoice Generator hooked up to the Service Catalog database.
+> * **Build:** The basic Patient CRM view for Admins to track where a patient is in their journey.
+> 
+> 
+> 
+> 
+
+---
+
+### Next Steps for You:
+
+Once you paste this into Replit, the AI will likely ask you to confirm the exact database schema (e.g., what specific columns you want in the "Patients" table).
+
+Would you like me to draft the database schema for the Patient CRM and the Service Catalog next, so you have it ready?

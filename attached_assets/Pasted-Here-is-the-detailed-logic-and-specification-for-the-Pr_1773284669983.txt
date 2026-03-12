@@ -1,0 +1,79 @@
+Here is the detailed logic and specification for the **"Progress & Biomarker Tracker"** module. This is the core engine of your "Longevity Loop", designed to visually prove the ROI of the treatments to the patient and trigger proactive follow-ups for your team.
+
+You can paste this directly into Replit to guide the AI on how to structure the charts and the underlying data.
+
+---
+
+### Copy and Paste this PRD section into Replit:
+
+> **Feature Specification: Biomarker & Progress Tracker**
+> **Objective:** Build a visual tracking dashboard within the "MyCelljevity" patient portal and the "Celljevity OS" medical view. This module must ingest longitudinal diagnostic data and visualize it to show health trajectory, specifically focusing on biological age reversal and cellular health over time.
+> ---
+> 
+> 
+> ### 1. Database Schema Additions (Biomarker Data)
+> 
+> 
+> Create a new table to store longitudinal test results.
+> **Table: `Biomarker_Results**`
+> * `result_id` (UUID, Primary Key)
+> * `patient_id` (UUID, Foreign Key)
+> * `test_date` (Date)
+> * `biomarker_type` (Enum: 'DNA_METHYLATION_AGE', 'TELOMERE_LENGTH', 'NK_CELL_COUNT', 'TUMOR_MARKER_CA125', etc.)
+> * `value_numeric` (Decimal)
+> * `unit` (String) *// e.g., 'Years', 'kb', 'cells/µL'*
+> * `reference_range_min` (Decimal, Nullable)
+> * `reference_range_max` (Decimal, Nullable)
+> * `status_flag` (Enum: 'OPTIMAL', 'NORMAL', 'WARNING', 'CRITICAL')
+> 
+> 
+> ---
+> 
+> 
+> ### 2. Core Visualizations (Frontend Components)
+> 
+> 
+> Use a robust charting library (e.g., Recharts, Chart.js, or Nivo) to build the following specific UI components:
+> **A. The "Biological vs. Chronological Age" Widget (DNA Methylation)**
+> * **Visual:** A dual-line chart or a dynamic gauge.
+> * **Data Logic:** Plot the patient's chronological age (a steady upward line) against their DNA Methylation Age (the dynamic line).
+> * **Key Metric:** Calculate and prominently display the "Delta" (e.g., "Your biological age is currently **-6.2 years** younger than your chronological age").
+> * **Impact Show:** Plot markers on the timeline indicating when specific treatments occurred (e.g., *Prometheus IV Infusion given here*) so the patient can visually correlate the treatment with the drop in biological age.
+> 
+> 
+> **B. The "Cellular Stamina" Chart (Telomere Lengths)**
+> * **Visual:** A line chart with a background gradient (Green at the top, Yellow in the middle, Red at the bottom) representing age-adjusted percentiles.
+> * **Data Logic:** Plot `TELOMERE_LENGTH` values over time.
+> * **Goal:** Show the stabilization or lengthening of telomeres post-treatment, moving the patient from the "Red" (accelerated aging) zone back into the "Green" (youthful) zone.
+> 
+> 
+> **C. Immune System Factory Reset (NK Cell Composition)**
+> * **Visual:** A Radar Chart or stacked bar chart comparing "Baseline" (before NK-Plus+ therapy) vs. "Current".
+> * **Data Logic:** Show the specific counts of active NK cells and overall immune composition. Highlight the spike in youthful immune cells following the high-dose Cord-Blood NK Cell Therapy.
+> 
+> 
+> **D. Standard Labs (Liver, Kidney, Tumor Biomarkers)**
+> * **Visual:** A clean, easy-to-read "Sparkline" table (miniature line charts inside a table row).
+> * **Data Logic:** List the test name, the most recent value, the delta from the last test (e.g., "↓ 12%"), and a color-coded status indicator (Green/Yellow/Red) based on the reference ranges.
+> 
+> 
+> ---
+> 
+> 
+> ### 3. Business Logic: "The Longevity Loop" Alerts
+> 
+> 
+> The system must automatically analyze new data entries in the `Biomarker_Results` table and trigger actions based on the results:
+> * **Positive Reinforcement (Patient-Facing):** If a biomarker improves significantly (e.g., biological age drops by > 1 year), trigger an automated, congratulatory secure message to the patient summarizing the win.
+> * **Proactive Intervention (Admin-Facing):** If a biomarker begins to degrade (e.g., Telomere length drops over two consecutive tests, or tumor markers elevate), trigger an alert in the `Care Coordinator` dashboard.
+> * **Actionable Next Step:** The alert should include a one-click button for the coordinator to "Draft New Treatment Quote," automatically suggesting a relevant follow-up (e.g., *Recommend: Prometheus Cell Infusion* or *Repeat NK-Plus+*).
+> 
+> 
+
+---
+
+### How this elevates your platform:
+
+By mapping the treatments (like your €10,000 Prometheus IV) directly onto the timeline of the patient's DNA Methylation or Telomere charts, you instantly visually justify the cost of the treatment. The patient sees the line drop, proving the science works, which drives the next round of treatments when the automated reminder pings them 6 months later.
+
+Would you like to tackle the **"Automated Intake Workflow & Document Parsing"** next to define how the system gets all this data in the first place without overwhelming your team?

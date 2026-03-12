@@ -1,0 +1,71 @@
+---
+title: Celljevity Patient Journey Flow
+---
+flowchart TB
+    subgraph ACQUISITION["🎯 ACQUISITION"]
+        A1[Website / Referral / Event]
+        A2[Initial Inquiry]
+        A3[Qualification Call]
+    end
+    
+    subgraph INTAKE["📋 INTAKE & ASSESSMENT"]
+        B1[Online Intake Form]
+        B2[Medical History Upload]
+        B3[Initial Consultation]
+        B4[Diagnostic Package Selection]
+    end
+    
+    subgraph DIAGNOSTICS["🔬 DIAGNOSTICS"]
+        C1[Local Blood Tests]
+        C2[Biomarkers & Panels]
+        C3[Genetic Testing]
+        C4[Results Review]
+    end
+    
+    subgraph PLANNING["📊 TREATMENT PLANNING"]
+        D1[Personalized Protocol]
+        D2[Service Selection]
+        D3[Quote Generation]
+        D4[Payment & Scheduling]
+    end
+    
+    subgraph TREATMENT["💉 TREATMENT PHASE"]
+        E1[Travel & Logistics]
+        E2[On-Site Treatment]
+        E3[NK Cells / Prometheus / Exosomes]
+        E4[Discharge & Instructions]
+    end
+    
+    subgraph FOLLOWUP["🔄 ONGOING MANAGEMENT"]
+        F1[Post-Treatment Monitoring]
+        F2[Regular Check-ins]
+        F3[Repeat Diagnostics]
+        F4[Protocol Adjustments]
+        F5[Longevity Optimization]
+    end
+    
+    A1 --> A2 --> A3
+    A3 -->|Qualified| B1
+    A3 -->|Not Ready| A1
+    
+    B1 --> B2 --> B3 --> B4
+    
+    B4 --> C1
+    B4 --> C2
+    B4 --> C3
+    C1 & C2 & C3 --> C4
+    
+    C4 --> D1 --> D2 --> D3 --> D4
+    
+    D4 --> E1 --> E2 --> E3 --> E4
+    
+    E4 --> F1 --> F2 --> F3 --> F4 --> F5
+    F5 -->|Repeat Cycle| F2
+    F3 -->|New Treatment| D1
+    
+    style ACQUISITION fill:#e8f4f8,stroke:#2d5a87
+    style INTAKE fill:#fff3e0,stroke:#e65100
+    style DIAGNOSTICS fill:#f3e5f5,stroke:#7b1fa2
+    style PLANNING fill:#e8f5e9,stroke:#2e7d32
+    style TREATMENT fill:#ffebee,stroke:#c62828
+    style FOLLOWUP fill:#e3f2fd,stroke:#1565c0

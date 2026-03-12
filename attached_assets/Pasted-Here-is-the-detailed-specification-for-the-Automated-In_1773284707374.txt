@@ -1,0 +1,66 @@
+Here is the detailed specification for the **Automated Intake Workflow & Document Parsing** module. This section outlines how to turn messy PDFs, doctor's notes, and patient forms into clean, structured data for your medical team, all while maintaining strict HIPAA compliance.
+
+You can copy and paste this directly into Replit to continue building out your platform.
+
+---
+
+### Copy and Paste this PRD section into Replit:
+
+> **Feature Specification: Automated Intake Workflow & Document Parsing**
+> **Objective:** Build a frictionless, self-service onboarding experience for the patient ("The Front Door") while utilizing secure, backend automation to extract and summarize medical data. This eliminates manual data entry for the Celljevity team and ensures doctors have a concise, accurate medical profile before the first consultation.
+> ---
+> 
+> 
+> ### 1. The Digital Intake Form (Patient-Facing UI)
+> 
+> 
+> Create a multi-step, mobile-responsive wizard in the "MyCelljevity" portal. It must include:
+> * **Step 1: Personal & Lifestyle Profiling:** Standard demographic fields, plus specific longevity-focused questions (e.g., primary health goals, known genetic predispositions, current diet/exercise regimen, budget expectations).
+> * **Step 2: Medical History Questionnaire:** Dynamic inputs for current medications, allergies, past surgeries, and ongoing treatments.
+> * **Step 3: Secure Document Upload Area:** A drag-and-drop zone allowing patients to upload PDFs, JPEGs, and DOCX files (e.g., recent blood tests, doctor's letters, biopsy reports, imaging summaries).
+> * *Technical constraint:* Uploads must stream directly to the secure storage bucket (e.g., via pre-signed URLs) to prevent large files from overwhelming the application server.
+> 
+> 
+> * **Step 4: Digital Consent & T&C:** A digital signature pad or compliant checkbox system where the patient agrees to medical disclaimers, data processing (GDPR/HIPAA consent), and financial terms.
+> 
+> 
+> ---
+> 
+> 
+> ### 2. AI Document Parsing & Summarization Engine (Backend)
+> 
+> 
+> Once the patient submits the Intake Form, the Journey Engine triggers an asynchronous background job to process the uploaded documents.
+> * **Secure OCR & Entity Extraction:** Use a HIPAA-compliant, private AI/OCR service (e.g., AWS Textract + private LLM, or a localized Node/Python NLP library). *Crucial: Do not send PHI to public, data-training AI endpoints.*
+> * **Data Structuring:** The engine must read messy, unstructured doctor's letters and lab results and extract:
+> * Past Diagnoses (ICD-10 codes if available).
+> * Current Medications (Drug name, dosage).
+> * Out-of-range Biomarkers (e.g., "Patient's LDL cholesterol is flagged high at 160 mg/dL").
+> 
+> 
+> * **Auto-Summarization:** Generate a 1-paragraph "Executive Medical Summary" and save it to the `medical_history_summary` column in the `Patients` database table.
+> 
+> 
+> ---
+> 
+> 
+> ### 3. Triage & Qualification Dashboard (Admin-Facing UI)
+> 
+> 
+> Create a view for the Care Coordinator to review incoming applications before they reach the medical doctors.
+> * **The "Inbox" View:** A kanban board or list showing all patients in the `INTAKE` stage.
+> * **AI Flagging:** The system visually highlights missing required documents or critical health warnings extracted by the AI (e.g., a red flag if the patient lists an allergy to a compound used in the treatment protocols).
+> * **Action Buttons:**
+> * **"Request More Info":** Sends an automated secure message back to the patient asking for a missing document.
+> * **"Qualify & Move to Diagnostics":** Updates the patient's `journey_stage` to `DIAGNOSTICS` and alerts the assigned Medical Provider that the file is ready for clinical review.
+> * **"Reject/Not a Fit":** Archives the profile with a polite automated email.
+> 
+> 
+> 
+> 
+
+---
+
+### Why this is critical for scale:
+
+Instead of your medical team spending 30 minutes reading through 15 pages of unstructured PDFs from a patient's local doctor, the AI does the heavy lifting. The doctor opens the profile and immediately sees: *"54-year-old male, primary goal is telomere lengthening. AI flagged elevated CA125 tumor markers in the uploaded 2024 lab report. Cleared for initial Prometheus consultation."* Would you like to draft the **Multi-Provider Scheduler & Treatment Logistics** next? This is where we define how the system actually coordinates the complex biological assets (like thawing cryopreserved Prometheus cells) with the patient's travel dates and clinic room availability!
