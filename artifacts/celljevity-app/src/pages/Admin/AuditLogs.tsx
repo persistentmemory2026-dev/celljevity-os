@@ -1,16 +1,35 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useGetAuditLogs } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from "@/components/ui";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
-import { ShieldCheck, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShieldCheck, Search, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 
 export default function AuditLogs() {
   const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
   const limit = 50;
+  const [actionFilter, setActionFilter] = useState("");
+  const [userFilter, setUserFilter] = useState("");
   
-  const { data: auditData, isLoading } = useGetAuditLogs({ limit, offset });
+  const { data: auditData, isLoading } = useGetAuditLogs({ limit: 200, offset: 0 });
+
+  const filteredData = useMemo(() => {
+    if (!auditData?.data) return [];
+    return auditData.data.filter(log => {
+      const matchesAction = !actionFilter || log.action?.toLowerCase().includes(actionFilter.toLowerCase());
+      const matchesUser = !userFilter || (log.userId || '').toLowerCase().includes(userFilter.toLowerCase());
+      return matchesAction && matchesUser;
+    });
+  }, [auditData, actionFilter, userFilter]);
+
+  const paginatedData = useMemo(() => {
+    return filteredData.slice(offset, offset + limit);
+  }, [filteredData, offset, limit]);
+
+  const handleFilterChange = () => {
+    setOffset(0);
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -24,6 +43,26 @@ export default function AuditLogs() {
           <CardTitle className="flex items-center gap-2 text-lg">
             <ShieldCheck className="w-5 h-5 text-primary" /> {t("admin.audit.title")}
           </CardTitle>
+          <div className="flex flex-col sm:flex-row gap-3 mt-3">
+            <div className="relative flex-1">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={t("admin.audit.filterByAction")}
+                value={actionFilter}
+                onChange={(e) => { setActionFilter(e.target.value); handleFilterChange(); }}
+                className="pl-9 h-9"
+              />
+            </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={t("admin.audit.filterByUser")}
+                value={userFilter}
+                onChange={(e) => { setUserFilter(e.target.value); handleFilterChange(); }}
+                className="pl-9 h-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right">
@@ -39,13 +78,13 @@ export default function AuditLogs() {
             <tbody className="divide-y divide-border font-mono text-xs">
               {isLoading ? (
                 <tr><td colSpan={5} className="p-8 text-center text-muted-foreground font-sans">{t("common.loading")}</td></tr>
-              ) : auditData?.data?.length === 0 ? (
+              ) : paginatedData.length === 0 ? (
                 <tr><td colSpan={5} className="p-8 text-center text-muted-foreground font-sans">{t("common.noData")}</td></tr>
               ) : (
-                auditData?.data?.map((log) => (
+                paginatedData.map((log) => (
                   <tr key={log.id} className="hover:bg-secondary/20 transition-colors">
                     <td className="px-6 py-3 whitespace-nowrap">{format(new Date(log.timestamp), 'yyyy-MM-dd HH:mm:ss')}</td>
-                    <td className="px-6 py-3 truncate max-w-[150px]" title={log.userId || 'System'}>{log.userId || 'System'}</td>
+                    <td className="px-6 py-3 truncate max-w-[150px]" title={log.userId || t("admin.audit.system")}>{log.userId || t("admin.audit.system")}</td>
                     <td className="px-6 py-3 font-semibold text-primary">{log.action}</td>
                     <td className="px-6 py-3">
                       {log.targetResourceType} {log.targetResourceId && <span className="text-muted-foreground ml-1">({log.targetResourceId})</span>}
@@ -60,13 +99,13 @@ export default function AuditLogs() {
         
         <div className="p-4 border-t flex items-center justify-between bg-secondary/5">
           <div className="text-sm text-muted-foreground">
-            {offset + 1} - {offset + (auditData?.data?.length || 0)}
+            {filteredData.length > 0 ? `${offset + 1} - ${Math.min(offset + limit, filteredData.length)} / ${filteredData.length}` : '0'}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setOffset(Math.max(0, offset - limit))} disabled={offset === 0}>
               <ChevronLeft className="w-4 h-4" /> {t("common.back")}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setOffset(offset + limit)} disabled={(auditData?.data?.length || 0) < limit}>
+            <Button variant="outline" size="sm" onClick={() => setOffset(offset + limit)} disabled={offset + limit >= filteredData.length}>
               {t("common.next")} <ChevronRight className="w-4 h-4" />
             </Button>
           </div>

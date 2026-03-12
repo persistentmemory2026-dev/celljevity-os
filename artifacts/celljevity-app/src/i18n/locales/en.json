@@ -99,6 +99,7 @@
     "viewAll": "View All",
     "initialConsultation": "Initial Consultation",
     "pendingScheduling": "Pending scheduling with Care Coordinator.",
+    "loopBack": "Loop",
     "stages": {
       "ACQUISITION": "Acquisition",
       "INTAKE": "Intake",
@@ -120,7 +121,14 @@
     "warning": "Warning",
     "critical": "Critical",
     "baselineNote": "Baseline — trend will appear after next reading",
-    "deltaFromPrevious": "from previous"
+    "deltaFromPrevious": "from previous",
+    "noAgeData": "No biological age data yet — results will appear after your first assessment.",
+    "noTelomereData": "No telomere length data yet — results will appear after testing.",
+    "noNkCellData": "No NK cell data yet — results will appear after testing.",
+    "baseline": "Baseline",
+    "current": "Current",
+    "years": "years",
+    "awaitingData": "Awaiting data"
   },
   "documents": {
     "title": "Document Vault",
@@ -195,6 +203,8 @@
     "finalReview": "Final Review & Signature",
     "finalReviewDesc": "By submitting this intake, you confirm that all provided information is accurate to the best of your knowledge.",
     "typeNameToSign": "Type your full name to sign",
+    "dobRequired": "Date of Birth Required",
+    "dobRequiredDesc": "Please enter your date of birth before proceeding.",
     "submitIntake": "Submit Intake",
     "continue": "Continue",
     "requiredConsents": "Required Consents",
@@ -285,7 +295,8 @@
     "pdfQuote": "QUOTE",
     "pdfInvoice": "INVOICE",
     "pdfBillTo": "Bill To",
-    "noServices": "No services in this category."
+    "noServices": "No services in this category.",
+    "readOnly": "Read-only"
   },
   "reports": {
     "title": "Reports Dashboard",
@@ -363,7 +374,8 @@
       "resourceId": "Resource ID",
       "ipAddress": "IP Address",
       "filterByAction": "Filter by action...",
-      "filterByUser": "Filter by user..."
+      "filterByUser": "Filter by user...",
+      "system": "System"
     }
   },
   "language": {

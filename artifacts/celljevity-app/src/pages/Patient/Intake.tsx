@@ -122,6 +122,11 @@ export default function Intake() {
 
   const handleNext = async () => {
     try {
+      if (currentStep === 0 && !dob) {
+        toast({ title: t("intake.dobRequired"), description: t("intake.dobRequiredDesc"), variant: "destructive" });
+        return;
+      }
+
       if (!intakeForm && currentStep === 0) {
         await createIntake.mutateAsync({
           data: {
@@ -357,7 +362,10 @@ export default function Intake() {
           <Button variant="outline" onClick={() => setCurrentStep(s => Math.max(0, s - 1))} disabled={currentStep === 0}>
             <ArrowLeft className="w-4 h-4 ltr:mr-2 rtl:ml-2" /> {t("common.back")}
           </Button>
-          <Button onClick={handleNext}>
+          <Button 
+            onClick={handleNext}
+            disabled={currentStep === STEPS.length - 1 && (!consents.DATA_PROCESSING || !consents.MEDICAL_DATA_SHARING || !consents.TERMS_AND_CONDITIONS || !consents.TREATMENT_CONSENT || !signature.trim())}
+          >
             {currentStep === STEPS.length - 1 ? t("intake.submitIntake") : t("intake.continue")} <ArrowRight className="w-4 h-4 ltr:ml-2 rtl:mr-2" />
           </Button>
         </div>

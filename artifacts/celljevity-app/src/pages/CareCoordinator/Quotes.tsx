@@ -162,7 +162,7 @@ export default function Quotes() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <Button size="sm" variant="ghost" onClick={() => setViewQuoteId(quote.id)}>
-                            <Edit className="w-4 h-4 mr-2" /> Manage
+                            <Edit className="w-4 h-4 mr-2" /> {t("quotes.manage")}
                           </Button>
                         </td>
                       </tr>
@@ -355,35 +355,49 @@ function QuoteBuilder({ quoteId, onClose, services }: { quoteId: string, onClose
                     quoteDetail.lineItems?.map(item => (
                       <tr key={item.id}>
                         <td className="px-4 py-3">
-                          <Input 
-                            value={item.customDescription || item.serviceName || ''} 
-                            onChange={(e) => handleUpdateItem(item.id, { customDescription: e.target.value })}
-                            className="h-8 text-sm bg-transparent border-transparent hover:border-input focus:border-input"
-                          />
+                          {isEditable ? (
+                            <Input 
+                              value={item.customDescription || item.serviceName || ''} 
+                              onChange={(e) => handleUpdateItem(item.id, { customDescription: e.target.value })}
+                              className="h-8 text-sm bg-transparent border-transparent hover:border-input focus:border-input"
+                            />
+                          ) : (
+                            <span className="text-sm">{item.customDescription || item.serviceName || ''}</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
-                          <Input 
-                            type="number" min="1"
-                            value={item.quantity} 
-                            onChange={(e) => handleUpdateItem(item.id, { quantity: parseInt(e.target.value) })}
-                            className="h-8 w-20 text-sm bg-transparent border-transparent hover:border-input focus:border-input"
-                          />
+                          {isEditable ? (
+                            <Input 
+                              type="number" min="1"
+                              value={item.quantity} 
+                              onChange={(e) => handleUpdateItem(item.id, { quantity: parseInt(e.target.value) })}
+                              className="h-8 w-20 text-sm bg-transparent border-transparent hover:border-input focus:border-input"
+                            />
+                          ) : (
+                            <span className="text-sm font-mono">{item.quantity}</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
-                          <Input 
-                            type="number" step="0.01"
-                            value={item.unitPrice} 
-                            onChange={(e) => handleUpdateItem(item.id, { unitPrice: parseFloat(e.target.value) })}
-                            className="h-8 w-24 text-sm bg-transparent border-transparent hover:border-input focus:border-input"
-                          />
+                          {isEditable ? (
+                            <Input 
+                              type="number" step="0.01"
+                              value={item.unitPrice} 
+                              onChange={(e) => handleUpdateItem(item.id, { unitPrice: parseFloat(e.target.value) })}
+                              className="h-8 w-24 text-sm bg-transparent border-transparent hover:border-input focus:border-input"
+                            />
+                          ) : (
+                            <span className="text-sm font-mono">{formatCurrency(item.unitPrice, quoteDetail.currency)}</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 font-mono text-muted-foreground">
                           {formatCurrency(item.lineTotal, quoteDetail.currency)}
                         </td>
                         <td className="px-4 py-3 text-right rtl:text-left">
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" onClick={() => handleDeleteItem(item.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          {isEditable && (
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" onClick={() => handleDeleteItem(item.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -417,7 +431,7 @@ function QuoteBuilder({ quoteId, onClose, services }: { quoteId: string, onClose
                         <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{service.defaultDescription}</div>
                         <div className="flex items-center justify-between mt-3">
                           <span className="font-mono text-sm font-semibold">{formatCurrency(service.basePriceEur, "EUR")}</span>
-                          <Button size="sm" variant="secondary" className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleAddService(service)}>
+                          <Button size="sm" variant="secondary" className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleAddService(service)} disabled={!isEditable}>
                             <Plus className="w-3 h-3 ltr:mr-1 rtl:ml-1" /> {t("quotes.add")}
                           </Button>
                         </div>
