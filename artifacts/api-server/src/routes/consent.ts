@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { consentRecordsTable, patientsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireSelfOrRole, auditLog, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireSelfOrRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
 
@@ -86,10 +86,12 @@ router.patch(
           .limit(1);
 
         if (!patient) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "patient_consent_revoke_denied", consentId: req.params.consentId }, req);
           res.status(403).json({ error: "Access denied" });
           return;
         }
       } else if (req.user!.role !== "CARE_COORDINATOR" && req.user!.role !== "SUPER_ADMIN") {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, userRole: req.user!.role, reason: "consent_revoke_insufficient_permissions", consentId: req.params.consentId }, req);
         res.status(403).json({ error: "Insufficient permissions" });
         return;
       }

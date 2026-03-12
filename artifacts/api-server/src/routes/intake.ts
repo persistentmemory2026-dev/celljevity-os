@@ -136,7 +136,7 @@ router.post(
       await db
         .update(patientsTable)
         .set({
-          journeyStage: "INTAKE",
+          journeyStage: "DIAGNOSTICS",
           isLead: false,
           updatedAt: new Date(),
         })

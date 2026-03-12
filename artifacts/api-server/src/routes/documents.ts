@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { documentsTable, documentTokensTable, patientsTable, documentTypeEnum, auditLogsTable } from "@workspace/db/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
-import { requireAuth, requireSelfOrRole, auditLog, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireSelfOrRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs/promises";
@@ -248,6 +248,7 @@ router.get(
           .limit(1);
 
         if (!patient) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "patient_document_access_denied", documentId: req.params.documentId }, req);
           res.status(403).json({ error: "Access denied" });
           return;
         }
@@ -403,10 +404,12 @@ router.delete(
           .limit(1);
 
         if (!patient) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "patient_document_delete_denied", documentId: req.params.documentId }, req);
           res.status(403).json({ error: "Access denied" });
           return;
         }
       } else if (req.user!.role !== "SUPER_ADMIN" && req.user!.role !== "MEDICAL_PROVIDER" && req.user!.role !== "CARE_COORDINATOR") {
+        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, userRole: req.user!.role, reason: "document_delete_insufficient_permissions", documentId: req.params.documentId }, req);
         res.status(403).json({ error: "Insufficient permissions" });
         return;
       }

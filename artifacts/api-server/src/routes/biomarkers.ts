@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { biomarkerResultsTable, biomarkerTypeEnum, biomarkerStatusEnum, patientsTable } from "@workspace/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { requireAuth, requireSelfOrRole, requireRole, auditLog, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireSelfOrRole, requireRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
 const VALID_BIOMARKER_TYPES = biomarkerTypeEnum.enumValues;
@@ -89,6 +89,7 @@ router.get(
           .limit(1);
 
         if (!patient) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "patient_biomarker_access_denied", biomarkerId: req.params.biomarkerId }, req);
           res.status(403).json({ error: "Access denied" });
           return;
         }

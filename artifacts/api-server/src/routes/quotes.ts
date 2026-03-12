@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { quotesTable, invoiceLineItemsTable, serviceCatalogTable, quoteStatusEnum, patientsTable } from "@workspace/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAuth, requireRole, auditLog, type AuthenticatedRequest } from "../middlewares";
+import { requireAuth, requireRole, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
 
 const router: IRouter = Router();
 const VALID_QUOTE_STATUSES = quoteStatusEnum.enumValues;
@@ -108,6 +108,7 @@ router.get(
           .limit(1);
 
         if (!patient) {
+          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "patient_quote_access_denied", quoteId: req.params.quoteId }, req);
           res.status(403).json({ error: "Access denied" });
           return;
         }
