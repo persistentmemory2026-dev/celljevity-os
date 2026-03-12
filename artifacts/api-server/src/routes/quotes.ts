@@ -191,6 +191,33 @@ router.patch(
       const updates: Partial<typeof quotesTable.$inferInsert> = { updatedAt: new Date() };
 
       if (req.body.status !== undefined && VALID_QUOTE_STATUSES.includes(req.body.status)) {
+        const [existing] = await db
+          .select({ status: quotesTable.status })
+          .from(quotesTable)
+          .where(eq(quotesTable.id, req.params.quoteId))
+          .limit(1);
+
+        if (!existing) {
+          res.status(404).json({ error: "Quote not found" });
+          return;
+        }
+
+        const allowedTransitions: Record<string, string[]> = {
+          DRAFT: ["PENDING", "CANCELLED"],
+          PENDING: ["ACCEPTED", "CANCELLED"],
+          ACCEPTED: ["PAID", "CANCELLED"],
+          PAID: [],
+          CANCELLED: [],
+        };
+
+        const allowed = allowedTransitions[existing.status] || [];
+        if (!allowed.includes(req.body.status)) {
+          res.status(400).json({
+            error: `Invalid status transition: ${existing.status} → ${req.body.status}. Allowed: ${allowed.join(", ") || "none"}`,
+          });
+          return;
+        }
+
         updates.status = req.body.status;
       }
       if (req.body.currency !== undefined) updates.currency = req.body.currency;
