@@ -7,6 +7,10 @@ import {
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, auditLog, type AuthenticatedRequest } from "../middlewares";
+import path from "path";
+import fs from "fs/promises";
+
+const UPLOAD_DIR = path.resolve(process.cwd(), ".data/uploads");
 
 const router: IRouter = Router();
 
@@ -122,9 +126,22 @@ router.post(
       await db.delete(consentRecordsTable).where(eq(consentRecordsTable.patientId, patient.id));
       await db.delete(intakeFormsTable).where(eq(intakeFormsTable.patientId, patient.id));
 
-      const patientDocs = await db.select({ id: documentsTable.id }).from(documentsTable).where(eq(documentsTable.patientId, patient.id));
+      const patientDocs = await db.select().from(documentsTable).where(eq(documentsTable.patientId, patient.id));
       for (const doc of patientDocs) {
         await db.delete(documentTokensTable).where(eq(documentTokensTable.documentId, doc.id));
+
+        const filePath = path.join(UPLOAD_DIR, doc.storageKey);
+        try {
+          await fs.unlink(filePath);
+        } catch {
+          // file may not exist on disk
+        }
+        try {
+          const dirPath = path.dirname(filePath);
+          await fs.rmdir(dirPath);
+        } catch {
+          // directory may not be empty or not exist
+        }
       }
       await db.delete(documentsTable).where(eq(documentsTable.patientId, patient.id));
 

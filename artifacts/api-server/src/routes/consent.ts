@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { consentRecordsTable } from "@workspace/db/schema";
+import { consentRecordsTable, patientsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireSelfOrRole, auditLog, type AuthenticatedRequest } from "../middlewares";
 
@@ -62,6 +62,38 @@ router.patch(
   auditLog("REVOKE_CONSENT", (req) => ({ type: "consent", id: req.params.consentId })),
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      const [consent] = await db
+        .select()
+        .from(consentRecordsTable)
+        .where(eq(consentRecordsTable.id, req.params.consentId))
+        .limit(1);
+
+      if (!consent) {
+        res.status(404).json({ error: "Consent record not found" });
+        return;
+      }
+
+      if (req.user!.role === "PATIENT") {
+        const [patient] = await db
+          .select({ id: patientsTable.id })
+          .from(patientsTable)
+          .where(
+            and(
+              eq(patientsTable.id, consent.patientId),
+              eq(patientsTable.userId, req.user!.id)
+            )
+          )
+          .limit(1);
+
+        if (!patient) {
+          res.status(403).json({ error: "Access denied" });
+          return;
+        }
+      } else if (req.user!.role !== "CARE_COORDINATOR" && req.user!.role !== "SUPER_ADMIN") {
+        res.status(403).json({ error: "Insufficient permissions" });
+        return;
+      }
+
       const [updated] = await db
         .update(consentRecordsTable)
         .set({
@@ -70,11 +102,6 @@ router.patch(
         })
         .where(eq(consentRecordsTable.id, req.params.consentId))
         .returning();
-
-      if (!updated) {
-        res.status(404).json({ error: "Consent record not found" });
-        return;
-      }
 
       res.json(updated);
     } catch (err) {

@@ -61,6 +61,7 @@ import type {
   RegisterRequest,
   Service,
   ServiceListResponse,
+  UpdateBiomarkerResultBody,
   UpdateLeadInput,
   UpdatePatientRequest,
   UpdateQuoteRequest,
@@ -3719,6 +3720,186 @@ export const useAddBiomarkerResult = <
   TContext
 > => {
   return useMutation(getAddBiomarkerResultMutationOptions(options));
+};
+
+/**
+ * @summary Get biomarker result by ID
+ */
+export const getGetBiomarkerResultUrl = (biomarkerId: string) => {
+  return `/api/biomarkers/${biomarkerId}`;
+};
+
+export const getBiomarkerResult = async (
+  biomarkerId: string,
+  options?: RequestInit,
+): Promise<BiomarkerResult> => {
+  return customFetch<BiomarkerResult>(getGetBiomarkerResultUrl(biomarkerId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBiomarkerResultQueryKey = (biomarkerId: string) => {
+  return [`/api/biomarkers/${biomarkerId}`] as const;
+};
+
+export const getGetBiomarkerResultQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBiomarkerResult>>,
+  TError = ErrorType<unknown>,
+>(
+  biomarkerId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBiomarkerResult>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetBiomarkerResultQueryKey(biomarkerId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBiomarkerResult>>
+  > = ({ signal }) =>
+    getBiomarkerResult(biomarkerId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!biomarkerId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBiomarkerResult>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBiomarkerResultQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBiomarkerResult>>
+>;
+export type GetBiomarkerResultQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get biomarker result by ID
+ */
+
+export function useGetBiomarkerResult<
+  TData = Awaited<ReturnType<typeof getBiomarkerResult>>,
+  TError = ErrorType<unknown>,
+>(
+  biomarkerId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBiomarkerResult>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBiomarkerResultQueryOptions(biomarkerId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update biomarker result
+ */
+export const getUpdateBiomarkerResultUrl = (biomarkerId: string) => {
+  return `/api/biomarkers/${biomarkerId}`;
+};
+
+export const updateBiomarkerResult = async (
+  biomarkerId: string,
+  updateBiomarkerResultBody: UpdateBiomarkerResultBody,
+  options?: RequestInit,
+): Promise<BiomarkerResult> => {
+  return customFetch<BiomarkerResult>(
+    getUpdateBiomarkerResultUrl(biomarkerId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateBiomarkerResultBody),
+    },
+  );
+};
+
+export const getUpdateBiomarkerResultMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBiomarkerResult>>,
+    TError,
+    { biomarkerId: string; data: BodyType<UpdateBiomarkerResultBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateBiomarkerResult>>,
+  TError,
+  { biomarkerId: string; data: BodyType<UpdateBiomarkerResultBody> },
+  TContext
+> => {
+  const mutationKey = ["updateBiomarkerResult"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateBiomarkerResult>>,
+    { biomarkerId: string; data: BodyType<UpdateBiomarkerResultBody> }
+  > = (props) => {
+    const { biomarkerId, data } = props ?? {};
+
+    return updateBiomarkerResult(biomarkerId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateBiomarkerResultMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateBiomarkerResult>>
+>;
+export type UpdateBiomarkerResultMutationBody =
+  BodyType<UpdateBiomarkerResultBody>;
+export type UpdateBiomarkerResultMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update biomarker result
+ */
+export const useUpdateBiomarkerResult = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBiomarkerResult>>,
+    TError,
+    { biomarkerId: string; data: BodyType<UpdateBiomarkerResultBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateBiomarkerResult>>,
+  TError,
+  { biomarkerId: string; data: BodyType<UpdateBiomarkerResultBody> },
+  TContext
+> => {
+  return useMutation(getUpdateBiomarkerResultMutationOptions(options));
 };
 
 /**

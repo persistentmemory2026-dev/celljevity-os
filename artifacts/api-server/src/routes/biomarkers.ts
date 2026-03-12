@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { biomarkerResultsTable, biomarkerTypeEnum, biomarkerStatusEnum } from "@workspace/db/schema";
+import { biomarkerResultsTable, biomarkerTypeEnum, biomarkerStatusEnum, patientsTable } from "@workspace/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { requireAuth, requireSelfOrRole, requireRole, auditLog, type AuthenticatedRequest } from "../middlewares";
 
@@ -59,6 +59,77 @@ router.get(
   }
 );
 
+router.get(
+  "/biomarkers/:biomarkerId",
+  requireAuth,
+  auditLog("VIEW_BIOMARKER", (req) => ({ type: "biomarker", id: req.params.biomarkerId })),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const [result] = await db
+        .select()
+        .from(biomarkerResultsTable)
+        .where(eq(biomarkerResultsTable.id, req.params.biomarkerId))
+        .limit(1);
+
+      if (!result) {
+        res.status(404).json({ error: "Biomarker result not found" });
+        return;
+      }
+
+      if (req.user!.role === "PATIENT") {
+        const [patient] = await db
+          .select({ id: patientsTable.id })
+          .from(patientsTable)
+          .where(
+            and(
+              eq(patientsTable.id, result.patientId),
+              eq(patientsTable.userId, req.user!.id)
+            )
+          )
+          .limit(1);
+
+        if (!patient) {
+          res.status(403).json({ error: "Access denied" });
+          return;
+        }
+
+        res.json({
+          id: result.id,
+          testDate: result.testDate,
+          biomarkerType: result.biomarkerType,
+          valueNumeric: result.valueNumeric,
+          unit: result.unit,
+          referenceRangeMin: result.referenceRangeMin,
+          referenceRangeMax: result.referenceRangeMax,
+          statusFlag: result.statusFlag,
+          createdAt: result.createdAt,
+        });
+        return;
+      }
+
+      if (req.user!.role === "CARE_COORDINATOR") {
+        res.json({
+          id: result.id,
+          patientId: result.patientId,
+          testDate: result.testDate,
+          biomarkerType: result.biomarkerType,
+          valueNumeric: result.valueNumeric,
+          unit: result.unit,
+          referenceRangeMin: result.referenceRangeMin,
+          referenceRangeMax: result.referenceRangeMax,
+          statusFlag: result.statusFlag,
+          createdAt: result.createdAt,
+        });
+        return;
+      }
+
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 router.post(
   "/patients/:patientId/biomarkers",
   requireAuth,
@@ -108,6 +179,70 @@ router.post(
       }).returning();
 
       res.status(201).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.patch(
+  "/biomarkers/:biomarkerId",
+  requireAuth,
+  requireRole("MEDICAL_PROVIDER", "SUPER_ADMIN"),
+  auditLog("UPDATE_BIOMARKER", (req) => ({ type: "biomarker", id: req.params.biomarkerId })),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const updates: Partial<typeof biomarkerResultsTable.$inferInsert> = {};
+
+      if (req.body.testDate !== undefined) updates.testDate = req.body.testDate;
+      if (req.body.biomarkerType !== undefined && VALID_BIOMARKER_TYPES.includes(req.body.biomarkerType)) {
+        updates.biomarkerType = req.body.biomarkerType;
+      }
+      if (req.body.unit !== undefined) updates.unit = req.body.unit;
+      if (req.body.valueNumeric !== undefined) updates.valueNumeric = String(req.body.valueNumeric);
+      if (req.body.referenceRangeMin !== undefined) updates.referenceRangeMin = String(req.body.referenceRangeMin);
+      if (req.body.referenceRangeMax !== undefined) updates.referenceRangeMax = String(req.body.referenceRangeMax);
+
+      if (req.body.statusFlag !== undefined && VALID_STATUS_FLAGS.includes(req.body.statusFlag)) {
+        updates.statusFlag = req.body.statusFlag;
+      } else if (updates.valueNumeric !== undefined || updates.referenceRangeMin !== undefined || updates.referenceRangeMax !== undefined) {
+        const [existing] = await db
+          .select()
+          .from(biomarkerResultsTable)
+          .where(eq(biomarkerResultsTable.id, req.params.biomarkerId))
+          .limit(1);
+
+        if (existing) {
+          const val = parseFloat(updates.valueNumeric ?? existing.valueNumeric);
+          const min = updates.referenceRangeMin !== undefined ? parseFloat(updates.referenceRangeMin) : (existing.referenceRangeMin ? parseFloat(existing.referenceRangeMin) : null);
+          const max = updates.referenceRangeMax !== undefined ? parseFloat(updates.referenceRangeMax) : (existing.referenceRangeMax ? parseFloat(existing.referenceRangeMax) : null);
+
+          if (min !== null && max !== null) {
+            const range = max - min;
+            if (val < min || val > max) {
+              const deviation = val < min ? (min - val) / range : (val - max) / range;
+              updates.statusFlag = deviation > 0.5 ? "CRITICAL" : "WARNING";
+            } else {
+              const midpoint = (min + max) / 2;
+              const optimalRange = range * 0.25;
+              updates.statusFlag = Math.abs(val - midpoint) <= optimalRange ? "OPTIMAL" : "NORMAL";
+            }
+          }
+        }
+      }
+
+      const [updated] = await db
+        .update(biomarkerResultsTable)
+        .set(updates)
+        .where(eq(biomarkerResultsTable.id, req.params.biomarkerId))
+        .returning();
+
+      if (!updated) {
+        res.status(404).json({ error: "Biomarker result not found" });
+        return;
+      }
+
+      res.json(updated);
     } catch (err) {
       next(err);
     }

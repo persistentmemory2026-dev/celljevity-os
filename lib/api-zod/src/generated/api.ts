@@ -1149,6 +1149,110 @@ export const AddBiomarkerResultBody = zod.object({
 });
 
 /**
+ * @summary Get biomarker result by ID
+ */
+export const GetBiomarkerResultParams = zod.object({
+  biomarkerId: zod.coerce.string().uuid(),
+});
+
+export const GetBiomarkerResultResponse = zod.object({
+  id: zod.string().uuid(),
+  patientId: zod.string().uuid(),
+  testDate: zod.date(),
+  biomarkerType: zod.enum([
+    "DNA_METHYLATION_AGE",
+    "TELOMERE_LENGTH",
+    "NK_CELL_COUNT",
+    "TUMOR_MARKER_CA125",
+    "TUMOR_MARKER_PSA",
+    "LDL_CHOLESTEROL",
+    "HDL_CHOLESTEROL",
+    "TRIGLYCERIDES",
+    "FASTING_GLUCOSE",
+    "HBA1C",
+    "CRP",
+    "VITAMIN_D",
+    "TESTOSTERONE",
+    "ESTRADIOL",
+    "IGF1",
+    "DHEA_S",
+    "CORTISOL",
+    "TSH",
+    "FREE_T3",
+    "FREE_T4",
+    "LIVER_ALT",
+    "LIVER_AST",
+    "KIDNEY_CREATININE",
+    "KIDNEY_GFR",
+    "OTHER",
+  ]),
+  valueNumeric: zod.string(),
+  unit: zod.string(),
+  referenceRangeMin: zod.string().nullish(),
+  referenceRangeMax: zod.string().nullish(),
+  statusFlag: zod.enum(["OPTIMAL", "NORMAL", "WARNING", "CRITICAL"]),
+  enteredBy: zod.string().uuid(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Update biomarker result
+ */
+export const UpdateBiomarkerResultParams = zod.object({
+  biomarkerId: zod.coerce.string().uuid(),
+});
+
+export const UpdateBiomarkerResultBody = zod.object({
+  testDate: zod.date().optional(),
+  biomarkerType: zod.string().optional(),
+  valueNumeric: zod.number().optional(),
+  unit: zod.string().optional(),
+  referenceRangeMin: zod.number().optional(),
+  referenceRangeMax: zod.number().optional(),
+  statusFlag: zod.enum(["OPTIMAL", "NORMAL", "WARNING", "CRITICAL"]).optional(),
+});
+
+export const UpdateBiomarkerResultResponse = zod.object({
+  id: zod.string().uuid(),
+  patientId: zod.string().uuid(),
+  testDate: zod.date(),
+  biomarkerType: zod.enum([
+    "DNA_METHYLATION_AGE",
+    "TELOMERE_LENGTH",
+    "NK_CELL_COUNT",
+    "TUMOR_MARKER_CA125",
+    "TUMOR_MARKER_PSA",
+    "LDL_CHOLESTEROL",
+    "HDL_CHOLESTEROL",
+    "TRIGLYCERIDES",
+    "FASTING_GLUCOSE",
+    "HBA1C",
+    "CRP",
+    "VITAMIN_D",
+    "TESTOSTERONE",
+    "ESTRADIOL",
+    "IGF1",
+    "DHEA_S",
+    "CORTISOL",
+    "TSH",
+    "FREE_T3",
+    "FREE_T4",
+    "LIVER_ALT",
+    "LIVER_AST",
+    "KIDNEY_CREATININE",
+    "KIDNEY_GFR",
+    "OTHER",
+  ]),
+  valueNumeric: zod.string(),
+  unit: zod.string(),
+  referenceRangeMin: zod.string().nullish(),
+  referenceRangeMax: zod.string().nullish(),
+  statusFlag: zod.enum(["OPTIMAL", "NORMAL", "WARNING", "CRITICAL"]),
+  enteredBy: zod.string().uuid(),
+  createdAt: zod.date(),
+});
+
+/**
  * @summary Delete biomarker result
  */
 export const DeleteBiomarkerResultParams = zod.object({

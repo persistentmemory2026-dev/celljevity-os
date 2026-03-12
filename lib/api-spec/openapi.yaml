@@ -913,6 +913,65 @@ paths:
                 $ref: "#/components/schemas/BiomarkerResult"
 
   /biomarkers/{biomarkerId}:
+    get:
+      operationId: getBiomarkerResult
+      tags: [biomarkers]
+      summary: Get biomarker result by ID
+      parameters:
+        - name: biomarkerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Biomarker detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiomarkerResult"
+    patch:
+      operationId: updateBiomarkerResult
+      tags: [biomarkers]
+      summary: Update biomarker result
+      parameters:
+        - name: biomarkerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                testDate:
+                  type: string
+                  format: date
+                biomarkerType:
+                  type: string
+                valueNumeric:
+                  type: number
+                unit:
+                  type: string
+                referenceRangeMin:
+                  type: number
+                referenceRangeMax:
+                  type: number
+                statusFlag:
+                  type: string
+                  enum: [OPTIMAL, NORMAL, WARNING, CRITICAL]
+      responses:
+        "200":
+          description: Biomarker updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiomarkerResult"
     delete:
       operationId: deleteBiomarkerResult
       tags: [biomarkers]

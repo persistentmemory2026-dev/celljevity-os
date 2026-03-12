@@ -81,6 +81,8 @@ export * from "./registerRequest";
 export * from "./service";
 export * from "./serviceCategory";
 export * from "./serviceListResponse";
+export * from "./updateBiomarkerResultBody";
+export * from "./updateBiomarkerResultBodyStatusFlag";
 export * from "./updateLeadInput";
 export * from "./updateLeadInputSource";
 export * from "./updateLeadInputStatus";

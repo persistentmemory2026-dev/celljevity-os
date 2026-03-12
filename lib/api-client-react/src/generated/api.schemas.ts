@@ -704,3 +704,23 @@ export type ListBiomarkersParams = {
   from?: string;
   to?: string;
 };
+
+export type UpdateBiomarkerResultBodyStatusFlag =
+  (typeof UpdateBiomarkerResultBodyStatusFlag)[keyof typeof UpdateBiomarkerResultBodyStatusFlag];
+
+export const UpdateBiomarkerResultBodyStatusFlag = {
+  OPTIMAL: "OPTIMAL",
+  NORMAL: "NORMAL",
+  WARNING: "WARNING",
+  CRITICAL: "CRITICAL",
+} as const;
+
+export type UpdateBiomarkerResultBody = {
+  testDate?: string;
+  biomarkerType?: string;
+  valueNumeric?: number;
+  unit?: string;
+  referenceRangeMin?: number;
+  referenceRangeMax?: number;
+  statusFlag?: UpdateBiomarkerResultBodyStatusFlag;
+};
