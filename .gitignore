@@ -66,3 +66,5 @@ Thumbs.db
 .roo
 .trae
 .windsurf
+
+.env.local

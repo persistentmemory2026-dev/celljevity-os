@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "Celljevity"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "services": "Services",
+    "quotes": "Quotes",
+    "documents": "Documents",
+    "newQuote": "New quote"
+  },
+  "common": {
+    "search": "Search",
+    "loading": "Loading"
+  }
+}
+

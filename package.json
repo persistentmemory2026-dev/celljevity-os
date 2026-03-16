@@ -11,7 +11,15 @@
   },
   "private": true,
   "devDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.59.0",
+    "@types/bcryptjs": "^3.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "convex": "^1.33.1"
   }
 }

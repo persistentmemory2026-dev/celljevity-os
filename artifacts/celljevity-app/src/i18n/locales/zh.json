@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "Celljevity"
+  },
+  "nav": {
+    "dashboard": "仪表盘",
+    "services": "服务",
+    "quotes": "报价",
+    "documents": "文档",
+    "newQuote": "新建报价"
+  },
+  "common": {
+    "search": "搜索",
+    "loading": "加载中"
+  }
+}
+
