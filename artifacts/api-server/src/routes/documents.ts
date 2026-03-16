@@ -1,584 +1,227 @@
-import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { documentsTable, documentTokensTable, patientsTable, documentTypeEnum, auditLogsTable } from "@workspace/db/schema";
-import { eq, and, gt, isNull } from "drizzle-orm";
-import { requireAuth, requireRole, requireSelfOrRole, requireAssignedOrAdmin, checkStaffAssignment, auditLog, logSecurityEvent, type AuthenticatedRequest } from "../middlewares";
-import crypto from "crypto";
+import { Router } from "express";
+import { db, documents } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
+import { randomBytes } from "crypto";
 import path from "path";
 import fs from "fs/promises";
 
-const router: IRouter = Router();
-const UPLOAD_DIR = path.resolve(process.cwd(), ".data/uploads");
-const UPLOAD_TOKEN_TTL_MS = 60 * 60 * 1000;
-const DOWNLOAD_TOKEN_TTL_MS = 15 * 60 * 1000;
-const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
-const VALID_DOC_TYPES = documentTypeEnum.enumValues;
+const router = Router();
 
-function sanitizeFileName(fileName: string): string {
-  const basename = path.basename(fileName);
-  const sanitized = basename.replace(/[^a-zA-Z0-9._-]/g, "_");
-  if (!sanitized || sanitized.startsWith(".")) {
-    return `file_${crypto.randomUUID()}`;
-  }
-  return sanitized;
-}
+// Ensure uploads directory exists
+const UPLOAD_DIR = process.env.UPLOAD_DIR || "./uploads";
 
-function ensurePathWithinUploadDir(filePath: string): void {
-  const resolved = path.resolve(filePath);
-  const resolvedUploadDir = path.resolve(UPLOAD_DIR);
-  if (!resolved.startsWith(resolvedUploadDir + path.sep) && resolved !== resolvedUploadDir) {
-    throw new Error("Path traversal attempt detected");
+async function ensureUploadDir() {
+  try {
+    await fs.mkdir(UPLOAD_DIR, { recursive: true });
+  } catch (error) {
+    console.error("Failed to create upload directory:", error);
   }
 }
 
-async function ensureUploadDir(subDir: string) {
-  const dir = path.join(UPLOAD_DIR, subDir);
-  ensurePathWithinUploadDir(dir);
-  await fs.mkdir(dir, { recursive: true });
-  return dir;
-}
+ensureUploadDir();
 
-router.get(
-  "/patients/:patientId/documents",
-  requireAuth,
-  requireSelfOrRole("patientId", "CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
-  requireAssignedOrAdmin("patientId"),
-  auditLog("LIST_DOCUMENTS", (req) => ({ type: "patient", id: req.params.patientId })),
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const { documentType } = req.query;
-      const conditions = [eq(documentsTable.patientId, req.params.patientId)];
-
-      if (documentType && typeof documentType === "string" && VALID_DOC_TYPES.includes(documentType as typeof VALID_DOC_TYPES[number])) {
-        conditions.push(eq(documentsTable.documentType, documentType as typeof VALID_DOC_TYPES[number]));
-      }
-
-      const docs = await db.select().from(documentsTable).where(and(...conditions));
-
-      const role = req.user!.role;
-      const filtered = docs.map((doc) => {
-        if (role === "PATIENT") {
-          return {
-            id: doc.id,
-            documentType: doc.documentType,
-            fileName: doc.fileName,
-            mimeType: doc.mimeType,
-            fileSize: doc.fileSize,
-            uploadDate: doc.uploadDate,
-          };
-        }
-        return {
-          id: doc.id,
-          patientId: doc.patientId,
-          uploadedBy: doc.uploadedBy,
-          documentType: doc.documentType,
-          fileName: doc.fileName,
-          mimeType: doc.mimeType,
-          fileSize: doc.fileSize,
-          uploadDate: doc.uploadDate,
-        };
-      });
-
-      res.json({ data: filtered });
-    } catch (err) {
-      next(err);
+// GET /api/documents
+router.get("/", async (req, res) => {
+  try {
+    const { category } = req.query;
+    
+    let whereClause = eq(documents.userId, req.session.userId!);
+    
+    if (category) {
+      whereClause = and(whereClause, eq(documents.category, category as string))!;
     }
+    
+    const allDocs = await db.query.documents.findMany({
+      where: whereClause,
+      orderBy: desc(documents.createdAt),
+    });
+
+    res.json({ documents: allDocs });
+  } catch (error) {
+    console.error("Get documents error:", error);
+    res.status(500).json({ error: "Failed to get documents" });
   }
-);
+});
 
-router.get(
-  "/documents/:documentId",
-  requireAuth,
-  auditLog("VIEW_DOCUMENT_METADATA", (req) => ({ type: "document", id: req.params.documentId })),
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const [doc] = await db
-        .select()
-        .from(documentsTable)
-        .where(eq(documentsTable.id, req.params.documentId))
-        .limit(1);
-
-      if (!doc) {
-        res.status(404).json({ error: "Document not found" });
-        return;
-      }
-
-      if (req.user!.role === "PATIENT") {
-        const [patient] = await db
-          .select({ id: patientsTable.id })
-          .from(patientsTable)
-          .where(
-            and(
-              eq(patientsTable.id, doc.patientId),
-              eq(patientsTable.userId, req.user!.id)
-            )
-          )
-          .limit(1);
-
-        if (!patient) {
-          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "patient_document_metadata_denied", documentId: req.params.documentId }, req);
-          res.status(403).json({ error: "Access denied" });
-          return;
-        }
-
-        res.json({
-          id: doc.id,
-          documentType: doc.documentType,
-          fileName: doc.fileName,
-          mimeType: doc.mimeType,
-          fileSize: doc.fileSize,
-          uploadDate: doc.uploadDate,
-        });
-        return;
-      }
-
-      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, doc.patientId);
-      if (!isAssigned) {
-        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_document", documentId: req.params.documentId }, req);
-        res.status(403).json({ error: "You are not assigned to this patient" });
-        return;
-      }
-
-      res.json({
-        id: doc.id,
-        patientId: doc.patientId,
-        uploadedBy: doc.uploadedBy,
-        documentType: doc.documentType,
-        fileName: doc.fileName,
-        mimeType: doc.mimeType,
-        fileSize: doc.fileSize,
-        storageKey: doc.storageKey,
-        uploadDate: doc.uploadDate,
-      });
-    } catch (err) {
-      next(err);
+// POST /api/documents/upload
+router.post("/upload", async (req, res) => {
+  try {
+    // For MVP, we'll handle file upload via base64
+    // In production, use multer or similar
+    const { filename, content, mimeType, category = "other", relatedQuoteId } = req.body;
+    
+    if (!filename || !content) {
+      return res.status(400).json({ error: "Filename and content required" });
     }
+    
+    // Decode base64 content
+    const buffer = Buffer.from(content, "base64");
+    const size = buffer.length;
+    
+    // Generate unique filename
+    const ext = path.extname(filename);
+    const uniqueName = `${Date.now()}-${randomBytes(8).toString("hex")}${ext}`;
+    const storagePath = path.join(UPLOAD_DIR, uniqueName);
+    
+    // Save file
+    await fs.writeFile(storagePath, buffer);
+    
+    // Generate share token (optional)
+    const shareToken = randomBytes(32).toString("hex");
+    const shareExpiresAt = new Date();
+    shareExpiresAt.setDate(shareExpiresAt.getDate() + 7); // 7 days
+    
+    // Save to database
+    const [doc] = await db.insert(documents).values({
+      userId: req.session.userId!,
+      filename: uniqueName,
+      originalName: filename,
+      mimeType: mimeType || "application/octet-stream",
+      size,
+      storagePath,
+      category,
+      relatedQuoteId: relatedQuoteId || null,
+      shareToken,
+      shareExpiresAt,
+    }).returning();
+    
+    res.status(201).json({
+      document: {
+        ...doc,
+        downloadUrl: `/api/documents/${doc.id}/download`,
+      },
+    });
+  } catch (error) {
+    console.error("Upload error:", error);
+    res.status(500).json({ error: "Failed to upload document" });
   }
-);
+});
 
-router.patch(
-  "/documents/:documentId",
-  requireAuth,
-  requireRole("CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
-  auditLog("UPDATE_DOCUMENT_METADATA", (req) => ({ type: "document", id: req.params.documentId })),
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const [doc] = await db
-        .select({ patientId: documentsTable.patientId })
-        .from(documentsTable)
-        .where(eq(documentsTable.id, req.params.documentId))
-        .limit(1);
+// GET /api/documents/:id/download
+router.get("/:id/download", async (req, res) => {
+  try {
+    const doc = await db.query.documents.findFirst({
+      where: and(
+        eq(documents.id, req.params.id),
+        eq(documents.userId, req.session.userId!)
+      ),
+    });
 
-      if (!doc) {
-        res.status(404).json({ error: "Document not found" });
-        return;
-      }
-
-      const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, doc.patientId);
-      if (!isAssigned) {
-        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_document_update", documentId: req.params.documentId }, req);
-        res.status(403).json({ error: "You are not assigned to this patient" });
-        return;
-      }
-
-      const updates: Partial<typeof documentsTable.$inferInsert> = {};
-
-      if (req.body.documentType !== undefined && VALID_DOC_TYPES.includes(req.body.documentType)) {
-        updates.documentType = req.body.documentType;
-      }
-      if (req.body.fileName !== undefined) {
-        updates.fileName = sanitizeFileName(req.body.fileName);
-      }
-      if (req.body.mimeType !== undefined) updates.mimeType = req.body.mimeType;
-
-      const [updated] = await db
-        .update(documentsTable)
-        .set(updates)
-        .where(eq(documentsTable.id, req.params.documentId))
-        .returning();
-
-      res.json({
-        id: updated.id,
-        patientId: updated.patientId,
-        documentType: updated.documentType,
-        fileName: updated.fileName,
-        mimeType: updated.mimeType,
-        fileSize: updated.fileSize,
-        uploadDate: updated.uploadDate,
-      });
-    } catch (err) {
-      next(err);
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
     }
+
+    // Read file
+    const fileBuffer = await fs.readFile(doc.storagePath);
+    
+    // Set headers
+    res.setHeader("Content-Type", doc.mimeType);
+    res.setHeader("Content-Disposition", `attachment; filename="${doc.originalName}"`);
+    res.setHeader("Content-Length", doc.size);
+    
+    res.send(fileBuffer);
+  } catch (error) {
+    console.error("Download error:", error);
+    res.status(500).json({ error: "Failed to download document" });
   }
-);
+});
 
-router.post(
-  "/patients/:patientId/documents",
-  requireAuth,
-  requireSelfOrRole("patientId", "CARE_COORDINATOR", "MEDICAL_PROVIDER", "SUPER_ADMIN"),
-  requireAssignedOrAdmin("patientId"),
-  auditLog("UPLOAD_DOCUMENT", (req) => ({ type: "patient", id: req.params.patientId })),
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const { documentType, fileName, mimeType, fileSize } = req.body;
+// GET /api/documents/:id/share (get shareable link)
+router.get("/:id/share", async (req, res) => {
+  try {
+    const doc = await db.query.documents.findFirst({
+      where: and(
+        eq(documents.id, req.params.id),
+        eq(documents.userId, req.session.userId!)
+      ),
+    });
 
-      if (!documentType || !fileName) {
-        res.status(400).json({ error: "documentType and fileName are required" });
-        return;
-      }
-
-      if (!VALID_DOC_TYPES.includes(documentType)) {
-        res.status(400).json({ error: `Invalid documentType. Must be one of: ${VALID_DOC_TYPES.join(", ")}` });
-        return;
-      }
-
-      const safeFileName = sanitizeFileName(fileName);
-      const fileId = crypto.randomUUID();
-      const storageKey = `patients/${req.params.patientId}/${fileId}/${safeFileName}`;
-
-      const [doc] = await db.insert(documentsTable).values({
-        patientId: req.params.patientId,
-        uploadedBy: req.user!.id,
-        documentType,
-        fileName,
-        storageKey,
-        mimeType,
-        fileSize,
-      }).returning();
-
-      const token = crypto.randomBytes(48).toString("base64url");
-      const expiresAt = new Date(Date.now() + UPLOAD_TOKEN_TTL_MS);
-
-      await db.insert(documentTokensTable).values({
-        documentId: doc.id,
-        token,
-        purpose: "upload",
-        issuedTo: req.user!.id,
-        expiresAt,
-      });
-
-      res.status(201).json({
-        document: {
-          id: doc.id,
-          documentType: doc.documentType,
-          fileName: doc.fileName,
-          storageKey: doc.storageKey,
-        },
-        uploadUrl: `/api/documents/${doc.id}/upload`,
-        uploadToken: token,
-        expiresAt: expiresAt.toISOString(),
-      });
-    } catch (err) {
-      next(err);
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
     }
-  }
-);
 
-router.put(
-  "/documents/:documentId/upload",
-  requireAuth,
-  auditLog("EXECUTE_UPLOAD", (req) => ({ type: "document", id: req.params.documentId })),
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const { documentId } = req.params;
-      const uploadToken = req.headers["x-upload-token"] as string;
-
-      if (!uploadToken) {
-        res.status(400).json({ error: "Missing x-upload-token header" });
-        return;
-      }
-
-      const [tokenRecord] = await db
-        .select()
-        .from(documentTokensTable)
-        .where(
-          and(
-            eq(documentTokensTable.documentId, documentId),
-            eq(documentTokensTable.token, uploadToken),
-            eq(documentTokensTable.purpose, "upload"),
-            eq(documentTokensTable.issuedTo, req.user!.id),
-            gt(documentTokensTable.expiresAt, new Date()),
-            isNull(documentTokensTable.usedAt)
-          )
-        )
-        .limit(1);
-
-      if (!tokenRecord) {
-        res.status(403).json({ error: "Invalid, expired, or already-used upload token" });
-        return;
-      }
-
-      const [doc] = await db
-        .select()
-        .from(documentsTable)
-        .where(eq(documentsTable.id, documentId))
-        .limit(1);
-
-      if (!doc) {
-        res.status(404).json({ error: "Document not found" });
-        return;
-      }
-
-      const subDir = path.dirname(doc.storageKey);
-      const dir = await ensureUploadDir(subDir);
-      const filePath = path.join(dir, path.basename(doc.storageKey));
-
-      const chunks: Buffer[] = [];
-      let totalSize = 0;
-      for await (const chunk of req) {
-        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-        totalSize += buf.length;
-        if (totalSize > MAX_UPLOAD_SIZE_BYTES) {
-          res.status(413).json({ error: `File exceeds maximum upload size of ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)}MB` });
-          return;
-        }
-        chunks.push(buf);
-      }
-      const fileBuffer = Buffer.concat(chunks);
-      await fs.writeFile(filePath, fileBuffer);
-
-      await db
-        .update(documentTokensTable)
-        .set({ usedAt: new Date() })
-        .where(eq(documentTokensTable.id, tokenRecord.id));
-
-      await db
-        .update(documentsTable)
-        .set({ fileSize: fileBuffer.length })
-        .where(eq(documentsTable.id, documentId));
-
-      res.json({ message: "File uploaded successfully", fileSize: fileBuffer.length });
-    } catch (err) {
-      next(err);
+    // Generate new token if expired
+    let shareToken = doc.shareToken;
+    let shareExpiresAt = doc.shareExpiresAt;
+    
+    if (!shareToken || !shareExpiresAt || new Date(shareExpiresAt) < new Date()) {
+      shareToken = randomBytes(32).toString("hex");
+      shareExpiresAt = new Date();
+      shareExpiresAt.setDate(shareExpiresAt.getDate() + 7);
+      
+      await db.update(documents)
+        .set({ shareToken, shareExpiresAt })
+        .where(eq(documents.id, doc.id));
     }
+
+    res.json({
+      shareUrl: `/api/documents/share/${shareToken}`,
+      expiresAt: shareExpiresAt,
+    });
+  } catch (error) {
+    console.error("Share error:", error);
+    res.status(500).json({ error: "Failed to generate share link" });
   }
-);
+});
 
-router.get(
-  "/documents/:documentId/download",
-  requireAuth,
-  auditLog("REQUEST_DOWNLOAD", (req) => ({ type: "document", id: req.params.documentId })),
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const [doc] = await db
-        .select()
-        .from(documentsTable)
-        .where(eq(documentsTable.id, req.params.documentId))
-        .limit(1);
+// GET /api/documents/share/:token (public download via token)
+router.get("/share/:token", async (req, res) => {
+  try {
+    const doc = await db.query.documents.findFirst({
+      where: eq(documents.shareToken, req.params.token),
+    });
 
-      if (!doc) {
-        res.status(404).json({ error: "Document not found" });
-        return;
-      }
-
-      if (req.user!.role === "PATIENT") {
-        const [patient] = await db
-          .select({ id: patientsTable.id })
-          .from(patientsTable)
-          .where(
-            and(
-              eq(patientsTable.id, doc.patientId),
-              eq(patientsTable.userId, req.user!.id)
-            )
-          )
-          .limit(1);
-
-        if (!patient) {
-          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "patient_document_access_denied", documentId: req.params.documentId }, req);
-          res.status(403).json({ error: "Access denied" });
-          return;
-        }
-      } else {
-        const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, doc.patientId);
-        if (!isAssigned) {
-          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_document_download", documentId: req.params.documentId }, req);
-          res.status(403).json({ error: "You are not assigned to this patient" });
-          return;
-        }
-      }
-
-      const token = crypto.randomBytes(48).toString("base64url");
-      const expiresAt = new Date(Date.now() + DOWNLOAD_TOKEN_TTL_MS);
-
-      await db.insert(documentTokensTable).values({
-        documentId: doc.id,
-        token,
-        purpose: "download",
-        issuedTo: req.user!.id,
-        expiresAt,
-      });
-
-      res.json({
-        fileName: doc.fileName,
-        mimeType: doc.mimeType,
-        downloadUrl: `/api/documents/${doc.id}/content`,
-        downloadToken: token,
-        expiresIn: DOWNLOAD_TOKEN_TTL_MS / 1000,
-      });
-    } catch (err) {
-      next(err);
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
     }
-  }
-);
 
-router.get(
-  "/documents/:documentId/content",
-  requireAuth,
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const downloadToken = (req.headers["x-download-token"] as string) || (req.query.token as string);
-
-      if (!downloadToken) {
-        res.status(400).json({ error: "Missing download token (x-download-token header or ?token= query param)" });
-        return;
-      }
-
-      const { documentId } = req.params;
-
-      const [tokenRecord] = await db
-        .select()
-        .from(documentTokensTable)
-        .where(
-          and(
-            eq(documentTokensTable.documentId, documentId),
-            eq(documentTokensTable.token, downloadToken),
-            eq(documentTokensTable.purpose, "download"),
-            eq(documentTokensTable.issuedTo, req.user!.id),
-            gt(documentTokensTable.expiresAt, new Date()),
-            isNull(documentTokensTable.usedAt)
-          )
-        )
-        .limit(1);
-
-      if (!tokenRecord) {
-        res.status(403).json({ error: "Invalid, expired, or already-used download token" });
-        return;
-      }
-
-      const [doc] = await db
-        .select()
-        .from(documentsTable)
-        .where(eq(documentsTable.id, documentId))
-        .limit(1);
-
-      if (!doc) {
-        res.status(404).json({ error: "Document not found" });
-        return;
-      }
-
-      await db
-        .update(documentTokensTable)
-        .set({ usedAt: new Date() })
-        .where(eq(documentTokensTable.id, tokenRecord.id));
-
-      db.insert(auditLogsTable)
-        .values({
-          userId: tokenRecord.issuedTo,
-          action: "DOWNLOAD_DOCUMENT_CONTENT",
-          targetResourceType: "document",
-          targetResourceId: doc.id,
-          details: JSON.stringify({
-            method: req.method,
-            path: req.originalUrl,
-            fileName: doc.fileName,
-          }),
-          ipAddress: req.ip ?? req.socket.remoteAddress ?? null,
-        })
-        .execute()
-        .catch((err: unknown) => console.error("Audit log error:", err));
-
-      const filePath = path.join(UPLOAD_DIR, doc.storageKey);
-
-      try {
-        ensurePathWithinUploadDir(filePath);
-      } catch {
-        res.status(403).json({ error: "Invalid storage path" });
-        return;
-      }
-
-      try {
-        await fs.access(filePath);
-      } catch {
-        res.status(404).json({ error: "File not found on disk" });
-        return;
-      }
-
-      const safeDisplayName = sanitizeFileName(doc.fileName);
-      res.setHeader("Content-Disposition", `attachment; filename="${safeDisplayName}"`);
-      if (doc.mimeType) {
-        res.setHeader("Content-Type", doc.mimeType);
-      }
-
-      const fileBuffer = await fs.readFile(filePath);
-      res.send(fileBuffer);
-    } catch (err) {
-      next(err);
+    if (!doc.shareExpiresAt || new Date(doc.shareExpiresAt) < new Date()) {
+      return res.status(410).json({ error: "Share link expired" });
     }
+
+    // Read file
+    const fileBuffer = await fs.readFile(doc.storagePath);
+    
+    res.setHeader("Content-Type", doc.mimeType);
+    res.setHeader("Content-Disposition", `attachment; filename="${doc.originalName}"`);
+    res.setHeader("Content-Length", doc.size);
+    
+    res.send(fileBuffer);
+  } catch (error) {
+    console.error("Share download error:", error);
+    res.status(500).json({ error: "Failed to download document" });
   }
-);
+});
 
-router.delete(
-  "/documents/:documentId",
-  requireAuth,
-  auditLog("DELETE_DOCUMENT", (req) => ({ type: "document", id: req.params.documentId })),
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const [doc] = await db
-        .select()
-        .from(documentsTable)
-        .where(eq(documentsTable.id, req.params.documentId))
-        .limit(1);
+// DELETE /api/documents/:id
+router.delete("/:id", async (req, res) => {
+  try {
+    const doc = await db.query.documents.findFirst({
+      where: and(
+        eq(documents.id, req.params.id),
+        eq(documents.userId, req.session.userId!)
+      ),
+    });
 
-      if (!doc) {
-        res.status(404).json({ error: "Document not found" });
-        return;
-      }
-
-      if (req.user!.role === "PATIENT") {
-        const [patient] = await db
-          .select({ id: patientsTable.id })
-          .from(patientsTable)
-          .where(
-            and(
-              eq(patientsTable.id, doc.patientId),
-              eq(patientsTable.userId, req.user!.id)
-            )
-          )
-          .limit(1);
-
-        if (!patient) {
-          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "patient_document_delete_denied", documentId: req.params.documentId }, req);
-          res.status(403).json({ error: "Access denied" });
-          return;
-        }
-      } else if (req.user!.role !== "SUPER_ADMIN" && req.user!.role !== "MEDICAL_PROVIDER" && req.user!.role !== "CARE_COORDINATOR") {
-        await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, userRole: req.user!.role, reason: "document_delete_insufficient_permissions", documentId: req.params.documentId }, req);
-        res.status(403).json({ error: "Insufficient permissions" });
-        return;
-      } else {
-        const isAssigned = await checkStaffAssignment(req.user!.id, req.user!.role, doc.patientId);
-        if (!isAssigned) {
-          await logSecurityEvent("PERMISSION_DENIED", { userId: req.user!.id, reason: "staff_not_assigned_document_delete", documentId: req.params.documentId }, req);
-          res.status(403).json({ error: "You are not assigned to this patient" });
-          return;
-        }
-      }
-
-      const filePath = path.join(UPLOAD_DIR, doc.storageKey);
-      try {
-        await fs.unlink(filePath);
-      } catch {
-        // file may not exist on disk yet
-      }
-
-      await db.delete(documentTokensTable).where(eq(documentTokensTable.documentId, doc.id));
-      await db.delete(documentsTable).where(eq(documentsTable.id, doc.id));
-
-      res.json({ message: "Document deleted" });
-    } catch (err) {
-      next(err);
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
     }
+
+    // Delete file
+    try {
+      await fs.unlink(doc.storagePath);
+    } catch (error) {
+      console.warn("Failed to delete file:", error);
+    }
+
+    // Delete from database
+    await db.delete(documents).where(eq(documents.id, doc.id));
+
+    res.json({ message: "Document deleted" });
+  } catch (error) {
+    console.error("Delete document error:", error);
+    res.status(500).json({ error: "Failed to delete document" });
   }
-);
+});
 
 export default router;

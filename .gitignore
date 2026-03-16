@@ -52,6 +52,7 @@ Thumbs.db
 .local/
 
 # InsForge & AI agent skills
+.mcp.json
 .insforge
 .agent
 .agents
