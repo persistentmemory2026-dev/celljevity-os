@@ -1,6 +1,18 @@
 import { v } from "convex/values";
-import { query, mutation, action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { query, mutation, action, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { requireRole } from "./auth";
+
+// Generate a short-lived upload URL for Convex storage
+export const generateUploadUrl = mutation({
+  args: { userId: v.id("users") },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("Unauthorized");
+    return await ctx.storage.generateUploadUrl();
+  },
+});
 
 // List documents for user
 export const list = query({
@@ -10,6 +22,7 @@ export const list = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
+    await requireRole(ctx, args.userId, ["admin", "coordinator", "provider"]);
     let docs = await ctx.db
       .query("documents")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -20,7 +33,16 @@ export const list = query({
     }
     
     // Sort by createdAt desc
-    return docs.sort((a, b) => b.createdAt - a.createdAt);
+    docs.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+
+    // Resolve storage URLs
+    const docsWithUrls = await Promise.all(
+      docs.map(async (doc) => ({
+        ...doc,
+        url: doc.storageId ? await ctx.storage.getUrl(doc.storageId) : null,
+      }))
+    );
+    return docsWithUrls;
   },
 });
 
@@ -33,16 +55,29 @@ export const create = mutation({
     mimeType: v.string(),
     size: v.number(),
     storageId: v.optional(v.id("_storage")),
-    category: v.string(),
+    category: v.union(v.literal("invoice"), v.literal("quote"), v.literal("lab-report"), v.literal("other")),
     relatedQuoteId: v.optional(v.id("quotes")),
+    relatedPatientId: v.optional(v.id("patients")),
+    relatedTreatmentId: v.optional(v.id("treatments")),
   },
   returns: v.id("documents"),
   handler: async (ctx, args) => {
-    // Generate share token
-    const shareToken = Math.random().toString(36).substring(2, 15) + 
-                       Math.random().toString(36).substring(2, 15);
-    const shareExpiresAt = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days
-    
+    // Validate MIME type
+    const ALLOWED_MIME_TYPES = [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
+    if (!ALLOWED_MIME_TYPES.includes(args.mimeType)) {
+      throw new Error(`File type not allowed: ${args.mimeType}. Allowed: PDF, JPEG, PNG, DOCX, XLSX.`);
+    }
+
+    // Generate share token (48h expiry for healthcare documents)
+    const shareToken = crypto.randomUUID();
+    const shareExpiresAt = Date.now() + (48 * 60 * 60 * 1000); // 48 hours
+
     return await ctx.db.insert("documents", {
       ...args,
       shareToken,
@@ -52,19 +87,46 @@ export const create = mutation({
   },
 });
 
+// List documents for a patient
+export const listByPatient = query({
+  args: {
+    userId: v.id("users"),
+    patientId: v.id("patients"),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.userId, ["admin", "coordinator", "provider"]);
+    const docs = await ctx.db
+      .query("documents")
+      .withIndex("by_patient", (q: any) => q.eq("relatedPatientId", args.patientId))
+      .collect();
+    docs.sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+
+    const docsWithUrls = await Promise.all(
+      docs.map(async (doc: any) => ({
+        ...doc,
+        url: doc.storageId ? await ctx.storage.getUrl(doc.storageId) : null,
+      }))
+    );
+    return docsWithUrls;
+  },
+});
+
 // Delete document
 export const remove = mutation({
-  args: { documentId: v.id("documents") },
+  args: { documentId: v.id("documents"), userId: v.id("users") },
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.documentId);
-    if (!doc) return false;
-    
+    if (!doc || doc.userId !== args.userId) {
+      throw new Error("Document not found or access denied");
+    }
+
     // Delete from storage if exists
     if (doc.storageId) {
       await ctx.storage.delete(doc.storageId);
     }
-    
+
     await ctx.db.delete(args.documentId);
     return true;
   },
@@ -74,16 +136,16 @@ export const remove = mutation({
 export const getDownloadUrl = action({
   args: { documentId: v.id("documents") },
   returns: v.union(v.string(), v.null()),
-  handler: async (ctx, args) => {
-    const doc = await ctx.runQuery(api.documents.getInternal, { documentId: args.documentId });
+  handler: async (ctx, args): Promise<string | null> => {
+    const doc = await ctx.runQuery(internal.documents.getInternal, { documentId: args.documentId });
     if (!doc || !doc.storageId) return null;
-    
+
     return await ctx.storage.getUrl(doc.storageId);
   },
 });
 
-// Internal query for action
-export const getInternal = query({
+// Internal query — not callable from client
+export const getInternal = internalQuery({
   args: { documentId: v.id("documents") },
   returns: v.union(v.any(), v.null()),
   handler: async (ctx, args) => {
@@ -102,8 +164,14 @@ export const validateShare = query({
       .unique();
     
     if (!doc) return null;
-    if (doc.shareExpiresAt < Date.now()) return null;
-    
-    return doc;
+    if ((doc.shareExpiresAt ?? 0) < Date.now()) return null;
+
+    // Only return fields needed for download — not full document
+    return {
+      _id: doc._id,
+      storageId: doc.storageId,
+      mimeType: doc.mimeType,
+      originalName: doc.originalName,
+    };
   },
 });

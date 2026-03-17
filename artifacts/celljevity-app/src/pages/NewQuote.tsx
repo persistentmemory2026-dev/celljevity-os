@@ -1,10 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../convex/_generated/api";
+import { api } from "@convex/_generated/api";
+import { formatCurrency } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { generateQuotePDF } from "@/lib/pdf";
+import type { Id } from "@convex/_generated/dataModel";
+import type { PageId, NavigationContext } from "../App";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 interface NewQuoteProps {
   userId: string;
-  onNavigate: (page: "dashboard" | "services" | "quotes" | "documents" | "new-quote") => void;
+  onNavigate: (page: PageId, ctx?: NavigationContext) => void;
+  onDirtyChange?: (dirty: boolean) => void;
+  navContext?: NavigationContext;
 }
 
 interface QuoteItem {
@@ -14,9 +26,17 @@ interface QuoteItem {
   unitPrice: number;
 }
 
-export function NewQuote({ userId, onNavigate }: NewQuoteProps) {
+interface Service {
+  _id: string;
+  name: string;
+  price: number;
+  category: string;
+}
+
+export function NewQuote({ userId, onNavigate, onDirtyChange, navContext }: NewQuoteProps) {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
 
   // Form data
   const [type, setType] = useState<"quote" | "invoice">("quote");
@@ -27,10 +47,34 @@ export function NewQuote({ userId, onNavigate }: NewQuoteProps) {
   const [notes, setNotes] = useState("");
   const [taxRate, setTaxRate] = useState(19);
 
+  // Track dirty state
+  const isDirty = customerName !== "" || customerEmail !== "" || customerPhone !== "" || items.length > 0 || notes !== "";
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
   const services = useQuery(api.services.list);
+  const patients = useQuery(api.patients.list, { callerId: userId as Id<"users"> });
   const createQuote = useMutation(api.quotes.create);
 
-  const addItem = (service: any) => {
+  // Auto-add service from navContext
+  useEffect(() => {
+    if (navContext?.serviceId && navContext.serviceName && navContext.servicePrice != null && services) {
+      const existing = items.find((i) => i.serviceId === navContext.serviceId);
+      if (!existing) {
+        setItems([{
+          serviceId: navContext.serviceId,
+          serviceName: navContext.serviceName,
+          quantity: 1,
+          unitPrice: navContext.servicePrice,
+        }]);
+        setStep(2);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navContext?.serviceId, services]);
+
+  const addItem = (service: Service) => {
     const existing = items.find((i) => i.serviceId === service._id);
     if (existing) {
       setItems(
@@ -74,87 +118,72 @@ export function NewQuote({ userId, onNavigate }: NewQuoteProps) {
     setSubmitting(true);
     try {
       const newQuote = await createQuote({
-        userId,
+        userId: userId as Id<"users">,
         type,
         customerName,
         customerEmail: customerEmail || undefined,
         customerPhone: customerPhone || undefined,
-        items: items.map((i) => ({ serviceId: i.serviceId as any, quantity: i.quantity })),
+        items: items.map((i) => ({ serviceId: i.serviceId as Id<"services">, quantity: i.quantity })),
         notes: notes || undefined,
         taxRate,
       });
 
-      // Generate and download PDF
-      downloadPDF(newQuote);
+      if (!newQuote) throw new Error("Failed to create quote");
 
-      alert(`${type === "quote" ? "Quote" : "Invoice"} created successfully!`);
+      // Generate and download PDF
+      const { subtotal, taxAmount, total } = calculateTotals();
+      generateQuotePDF({
+        type,
+        quoteNumber: newQuote.quoteNumber,
+        customerName,
+        customerEmail: customerEmail || undefined,
+        customerPhone: customerPhone || undefined,
+        items: items.map((item) => ({
+          serviceName: item.serviceName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.quantity * item.unitPrice,
+        })),
+        subtotal,
+        taxRate,
+        taxAmount,
+        total,
+        notes: notes || undefined,
+      });
+
+      toast({
+        title: `${type === "quote" ? "Quote" : "Invoice"} created`,
+        description: `${newQuote.quoteNumber} has been created and downloaded.`,
+      });
       onNavigate("quotes");
-    } catch (error: any) {
-      alert(error.message || "Failed to create quote");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to create quote";
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: message,
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const downloadPDF = (quote: any) => {
-    const { subtotal, taxAmount, total } = calculateTotals();
-    
-    const content = `
-${type === "quote" ? "QUOTE" : "INVOICE"}
-
-${quote.quoteNumber}
-
-Customer: ${customerName}
-Email: ${customerEmail || "N/A"}
-Phone: ${customerPhone || "N/A"}
-
-Items:
-${items.map((item) => `
-${item.serviceName}
-${item.quantity} x ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.quantity * item.unitPrice)}
-`).join("\n")}
-
-Subtotal: ${formatCurrency(subtotal)}
-Tax (${taxRate}%): ${formatCurrency(taxAmount)}
-Total: ${formatCurrency(total)}
-
-${notes ? `Notes: ${notes}` : ""}
-    `;
-
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${quote.quoteNumber}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("de-DE", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount);
-  };
-
   const { subtotal, taxAmount, total } = calculateTotals();
 
   return (
-    <div className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+    <div className="p-4 max-w-4xl mx-auto space-y-6">
+      <h1 className="text-3xl font-display font-bold text-foreground">
         New {type === "quote" ? "Quote" : "Invoice"}
       </h1>
 
       {/* Type Selection */}
-      <div className="flex gap-4 mb-6">
+      <div className="flex gap-4">
         <button
           onClick={() => setType("quote")}
           className={`px-4 py-2 rounded-lg font-medium transition ${
             type === "quote"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
+              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
           }`}
         >
           Quote
@@ -163,8 +192,8 @@ ${notes ? `Notes: ${notes}` : ""}
           onClick={() => setType("invoice")}
           className={`px-4 py-2 rounded-lg font-medium transition ${
             type === "invoice"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
+              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
           }`}
         >
           Invoice
@@ -173,117 +202,149 @@ ${notes ? `Notes: ${notes}` : ""}
 
       {/* Step 1: Customer Info */}
       {step === 1 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h2>
+        <Card className="p-6">
+          <h2 className="text-xl font-display font-semibold text-foreground mb-4">Customer Information</h2>
           <div className="space-y-4">
+            {/* Patient picker */}
+            {patients && patients.length > 0 && (
+              <div>
+                <Label className="text-foreground mb-2 block">Select existing patient</Label>
+                <select
+                  className="w-full px-4 py-2 rounded-lg border border-border bg-card text-foreground focus:ring-2 focus:ring-primary outline-none"
+                  value=""
+                  onChange={(e) => {
+                    const p = patients.find((pt: any) => pt._id === e.target.value);
+                    if (p) {
+                      setCustomerName(`${p.firstName} ${p.lastName}`);
+                      setCustomerEmail(p.email || "");
+                      setCustomerPhone(p.phone || "");
+                    }
+                  }}
+                >
+                  <option value="" className="bg-card text-foreground">-- Select a patient --</option>
+                  {patients.map((p: any) => (
+                    <option key={p._id} value={p._id} className="bg-card text-foreground">
+                      {p.firstName} {p.lastName}{p.email ? ` (${p.email})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">Or enter details manually below</p>
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-              <input
+              <Label className="text-foreground">Name *</Label>
+              <Input
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="bg-card border-border text-foreground"
                 placeholder="Customer name"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
+              <Label className="text-foreground">Email</Label>
+              <Input
                 type="email"
                 value={customerEmail}
                 onChange={(e) => setCustomerEmail(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="bg-card border-border text-foreground"
                 placeholder="customer@example.com"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <input
+              <Label className="text-foreground">Phone</Label>
+              <Input
                 type="tel"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="bg-card border-border text-foreground"
                 placeholder="+49 123 456789"
               />
             </div>
           </div>
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
               onClick={() => setStep(2)}
               disabled={!customerName}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
             >
               Next: Select Services
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Step 2: Services */}
       {step === 2 && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Services</h2>
+          <Card className="p-6">
+            <h2 className="text-xl font-display font-semibold text-foreground mb-4">Select Services</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {services?.map((service) => (
                 <div
                   key={service._id}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition"
+                  className="border border-border/50 bg-secondary/20 rounded-xl p-4 hover:border-primary/50 transition-colors"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium text-gray-900">{service.name}</p>
-                      <p className="text-sm text-gray-500">{service.category}</p>
+                      <p className="font-medium text-foreground">{service.name}</p>
+                      <p className="text-sm text-muted-foreground">{service.category}</p>
                     </div>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-foreground">
                       {formatCurrency(service.price)}
                     </p>
                   </div>
-                  <button
-                    onClick={() => addItem(service)}
-                    className="mt-3 w-full py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition"
+                  <Button
+                    variant="outline"
+                    onClick={() => addItem(service as Service)}
+                    className="mt-4 w-full bg-transparent border-primary/50 text-primary hover:bg-primary/10 hover:text-primary transition-colors"
                   >
                     Add to Quote
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
 
           {/* Selected Items */}
           {items.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Selected Items</h3>
+            <Card className="p-6">
+              <h3 className="text-xl font-display font-semibold text-foreground mb-4">Selected Items</h3>
               <div className="space-y-3">
                 {items.map((item) => (
                   <div
                     key={item.serviceId}
-                    className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
+                    className="flex items-center justify-between py-3 border-b border-border/50 last:border-0"
                   >
                     <div>
-                      <p className="font-medium text-gray-900">{item.serviceName}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-foreground">{item.serviceName}</p>
+                      <p className="text-sm text-muted-foreground">
                         {formatCurrency(item.unitPrice)} per unit
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        <button
+                        <Button
+                          variant="outline"
+                          size="icon"
                           onClick={() => updateQuantity(item.serviceId, item.quantity - 1)}
-                          className="w-8 h-8 rounded-lg border border-gray-300 hover:bg-gray-100 flex items-center justify-center"
+                          className="w-8 h-8 rounded-lg border-border bg-transparent text-foreground hover:bg-secondary"
                         >
                           -
-                        </button>
-                        <span className="w-8 text-center">{item.quantity}</span>
-                        <button
+                        </Button>
+                        <span className="w-8 text-center text-foreground font-medium">{item.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
                           onClick={() => updateQuantity(item.serviceId, item.quantity + 1)}
-                          className="w-8 h-8 rounded-lg border border-gray-300 hover:bg-gray-100 flex items-center justify-center"
+                          className="w-8 h-8 rounded-lg border-border bg-transparent text-foreground hover:bg-secondary"
                         >
                           +
-                        </button>
+                        </Button>
                       </div>
-                      <p className="font-medium text-gray-900 w-24 text-right">
+                      <p className="font-medium text-foreground w-24 text-right">
                         {formatCurrency(item.unitPrice * item.quantity)}
                       </p>
                     </div>
@@ -292,37 +353,38 @@ ${notes ? `Notes: ${notes}` : ""}
               </div>
 
               {/* Totals */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="mt-6 pt-6 border-t border-border">
                 <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium text-foreground">{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Tax ({taxRate}%)</span>
-                  <span className="font-medium">{formatCurrency(taxAmount)}</span>
+                  <span className="text-muted-foreground">Tax ({taxRate}%)</span>
+                  <span className="font-medium text-foreground">{formatCurrency(taxAmount)}</span>
                 </div>
-                <div className="flex justify-between text-lg font-bold">
+                <div className="flex justify-between text-lg font-bold text-foreground mt-2">
                   <span>Total</span>
-                  <span>{formatCurrency(total)}</span>
+                  <span className="text-primary">{formatCurrency(total)}</span>
                 </div>
               </div>
-            </div>
+            </Card>
           )}
 
           <div className="flex justify-between">
-            <button
+            <Button
+              variant="outline"
               onClick={() => setStep(1)}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+              className="bg-transparent border-border text-foreground hover:bg-secondary"
             >
               Back
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setStep(3)}
               disabled={items.length === 0}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
             >
               Next: Review
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -330,58 +392,60 @@ ${notes ? `Notes: ${notes}` : ""}
       {/* Step 3: Review */}
       {step === 3 && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Review & Notes</h2>
-            
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-900 mb-2">Customer</h3>
-              <p>{customerName}</p>
-              {customerEmail && <p className="text-sm text-gray-600">{customerEmail}</p>}
-              {customerPhone && <p className="text-sm text-gray-600">{customerPhone}</p>}
+          <Card className="p-6">
+            <h2 className="text-xl font-display font-semibold text-foreground mb-4">Review & Notes</h2>
+
+            <div className="mb-6 p-4 bg-secondary/30 border border-border/50 rounded-xl">
+              <h3 className="font-medium text-foreground mb-2">Customer</h3>
+              <p className="text-muted-foreground">{customerName}</p>
+              {customerEmail && <p className="text-sm text-muted-foreground/80">{customerEmail}</p>}
+              {customerPhone && <p className="text-sm text-muted-foreground/80">{customerPhone}</p>}
             </div>
 
             <div className="mb-6">
-              <h3 className="font-medium text-gray-900 mb-2">Items</h3>
-              {items.map((item) => (
-                <div key={item.serviceId} className="flex justify-between py-2">
-                  <span>{item.serviceName} x {item.quantity}</span>
-                  <span>{formatCurrency(item.unitPrice * item.quantity)}</span>
-                </div>
-              ))}
-              <div className="border-t pt-2 mt-2">
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total</span>
-                  <span>{formatCurrency(total)}</span>
+              <h3 className="font-medium text-foreground mb-2">Items</h3>
+              <div className="bg-secondary/10 rounded-xl border border-border/50 p-4 space-y-2">
+                {items.map((item) => (
+                  <div key={item.serviceId} className="flex justify-between py-1">
+                    <span className="text-muted-foreground">{item.serviceName} x {item.quantity}</span>
+                    <span className="text-foreground font-medium">{formatCurrency(item.unitPrice * item.quantity)}</span>
+                  </div>
+                ))}
+                <div className="border-t border-border/50 pt-2 mt-2">
+                  <div className="flex justify-between font-bold text-lg text-foreground">
+                    <span>Total</span>
+                    <span className="text-primary">{formatCurrency(total)}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-              <textarea
+              <Label className="text-foreground">Notes (optional)</Label>
+              <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
-                rows={4}
+                className="bg-card border-border text-foreground min-h-[100px]"
                 placeholder="Additional notes..."
               />
             </div>
-          </div>
+          </Card>
 
           <div className="flex justify-between">
-            <button
+            <Button
+              variant="outline"
               onClick={() => setStep(2)}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+              className="bg-transparent border-border text-foreground hover:bg-secondary"
             >
               Back
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleSubmit}
               disabled={submitting}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
             >
               {submitting ? "Creating..." : `Create ${type === "quote" ? "Quote" : "Invoice"} & Download`}
-            </button>
+            </Button>
           </div>
         </div>
       )}

@@ -1,88 +1,87 @@
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 interface LoginProps {
   onLogin: (email: string, password: string) => Promise<boolean>;
 }
 
 export function Login({ onLogin }: LoginProps) {
-  const [email, setEmail] = useState("admin@celljevity.com");
-  const [password, setPassword] = useState("admin123");
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     try {
       const success = await onLogin(email, password);
       if (!success) {
-        setError("Invalid credentials");
+        toast({
+          title: "Login Failed",
+          description: "Invalid email or password",
+          variant: "destructive",
+        });
       }
-    } catch (err: any) {
-      setError(err.message || "Login failed");
+    } catch (err: unknown) {
+      toast({
+        title: "Login Failed",
+        description: err instanceof Error ? err.message : "Login failed",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,224,173,0.15),rgba(255,255,255,0))]">
+      <Card className="p-8 w-full max-w-md shadow-2xl border-border/50 bg-card/80 backdrop-blur-xl">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Celljevity</h1>
-          <p className="text-gray-600">Longevity OS</p>
+          <h1 className="text-4xl font-display font-bold text-foreground mb-2">Celljevity</h1>
+          <p className="text-muted-foreground font-medium">Longevity OS</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg mb-6 text-sm">
-            {error}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label className="text-foreground">Email</Label>
+            <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-              placeholder="admin@celljevity.com"
+              className="w-full px-4 py-3 bg-secondary/50 border-border text-foreground focus:ring-primary"
+              placeholder="you@example.com"
               required
+              autoFocus
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label className="text-foreground">Password</Label>
+            <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              className="w-full px-4 py-3 bg-secondary/50 border-border text-foreground focus:ring-primary"
               placeholder="••••••••"
               required
             />
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="w-full py-6 text-lg bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_20px_-5px_rgba(120,224,173,0.5)] transition-all"
           >
             {loading ? "Signing in..." : "Sign In"}
-          </button>
+          </Button>
         </form>
-
-        <div className="mt-6 text-center text-sm text-gray-500">
-          Default: admin@celljevity.com / admin123
-        </div>
-      </div>
+      </Card>
     </div>
   );
 }

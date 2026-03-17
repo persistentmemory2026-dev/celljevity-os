@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // List quotes for user
 export const list = query({
@@ -19,23 +20,24 @@ export const list = query({
     }
     
     // Sort by createdAt desc
-    return quotes.sort((a, b) => b.createdAt - a.createdAt);
+    return quotes.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   },
 });
 
 // Get single quote with items
 export const get = query({
-  args: { quoteId: v.id("quotes") },
+  args: { quoteId: v.id("quotes"), userId: v.id("users") },
   returns: v.union(v.any(), v.null()),
   handler: async (ctx, args) => {
     const quote = await ctx.db.get(args.quoteId);
     if (!quote) return null;
-    
+    if (quote.userId !== args.userId) return null;
+
     const items = await ctx.db
       .query("quoteItems")
       .withIndex("by_quote", (q) => q.eq("quoteId", args.quoteId))
       .collect();
-    
+
     return { ...quote, items };
   },
 });
@@ -44,7 +46,7 @@ export const get = query({
 export const create = mutation({
   args: {
     userId: v.id("users"),
-    type: v.string(),
+    type: v.union(v.literal("quote"), v.literal("invoice")),
     customerName: v.string(),
     customerEmail: v.optional(v.string()),
     customerPhone: v.optional(v.string()),
@@ -57,11 +59,11 @@ export const create = mutation({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    // Generate quote number
+    // Generate quote number with unique suffix to avoid race conditions
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const count = (await ctx.db.query("quotes").collect()).length + 1;
     const prefix = args.type === "quote" ? "QUO" : "INV";
-    const quoteNumber = `${prefix}-${today}-${String(count).padStart(4, "0")}`;
+    const suffix = crypto.randomUUID().slice(0, 6).toUpperCase();
+    const quoteNumber = `${prefix}-${today}-${suffix}`;
     
     // Calculate totals
     let subtotal = 0;
@@ -69,7 +71,7 @@ export const create = mutation({
     
     for (const item of args.items) {
       const service = await ctx.db.get(item.serviceId);
-      if (!service) continue;
+      if (!service) throw new Error("Service not found: " + item.serviceId);
       
       const unitPrice = service.price;
       const itemTotal = unitPrice * item.quantity;
@@ -118,34 +120,69 @@ export const create = mutation({
 export const updateStatus = mutation({
   args: {
     quoteId: v.id("quotes"),
-    status: v.string(),
+    userId: v.id("users"),
+    status: v.union(v.literal("draft"), v.literal("sent"), v.literal("accepted"), v.literal("paid"), v.literal("cancelled")),
   },
   returns: v.union(v.any(), v.null()),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.quoteId, { 
+    const quote = await ctx.db.get(args.quoteId);
+    if (!quote || quote.userId !== args.userId) {
+      throw new Error("Quote not found or access denied");
+    }
+    await ctx.db.patch(args.quoteId, {
       status: args.status,
       updatedAt: Date.now(),
     });
+
+    // Send email when status changes to "sent"
+    if (args.status === "sent" && quote.customerEmail) {
+      await ctx.scheduler.runAfter(0, internal.emailActions.sendQuoteEmail, {
+        quoteId: args.quoteId,
+      });
+    }
+
     return await ctx.db.get(args.quoteId);
   },
 });
 
 // Delete quote
 export const remove = mutation({
-  args: { quoteId: v.id("quotes") },
+  args: { quoteId: v.id("quotes"), userId: v.id("users") },
   returns: v.boolean(),
   handler: async (ctx, args) => {
+    const quote = await ctx.db.get(args.quoteId);
+    if (!quote || quote.userId !== args.userId) {
+      throw new Error("Quote not found or access denied");
+    }
+
     // Delete items first
     const items = await ctx.db
       .query("quoteItems")
       .withIndex("by_quote", (q) => q.eq("quoteId", args.quoteId))
       .collect();
-    
+
     for (const item of items) {
       await ctx.db.delete(item._id);
     }
-    
+
     await ctx.db.delete(args.quoteId);
     return true;
+  },
+});
+
+// Internal query for email actions — not callable from client
+export const getInternal = internalQuery({
+  args: { quoteId: v.id("quotes") },
+  returns: v.union(v.any(), v.null()),
+  handler: async (ctx, args) => {
+    const quote = await ctx.db.get(args.quoteId);
+    if (!quote) return null;
+
+    const items = await ctx.db
+      .query("quoteItems")
+      .withIndex("by_quote", (q) => q.eq("quoteId", args.quoteId))
+      .collect();
+
+    return { ...quote, items };
   },
 });
