@@ -64,17 +64,18 @@ const itemTypeIcons: Record<string, string> = {
 };
 
 export function PatientDetail({ userId, patientId, onNavigate }: PatientDetailProps) {
+  const hasIds = !!(userId && patientId);
   const callerId = userId as Id<"users">;
   const pId = patientId as Id<"patients">;
   const { toast } = useToast();
 
-  const patient = useQuery(api.patients.get, { callerId, patientId: pId });
-  const treatments = useQuery(api.treatments.listByPatient, { callerId, patientId: pId });
-  const biomarkers = useQuery(api.biomarkers.listByPatient, { callerId, patientId: pId });
-  const documents = useQuery(api.documents.listByPatient, { userId: callerId, patientId: pId });
-  const itineraries = useQuery(api.itineraries.listByPatient, { callerId, patientId: pId });
+  const patient = useQuery(api.patients.get, hasIds ? { callerId, patientId: pId } : "skip");
+  const treatments = useQuery(api.treatments.listByPatient, hasIds ? { callerId, patientId: pId } : "skip");
+  const biomarkers = useQuery(api.biomarkers.listByPatient, hasIds ? { callerId, patientId: pId } : "skip");
+  const documents = useQuery(api.documents.listByPatient, hasIds ? { userId: callerId, patientId: pId } : "skip");
+  const itineraries = useQuery(api.itineraries.listByPatient, hasIds ? { callerId, patientId: pId } : "skip");
   const activeServices = useQuery(api.services.list, {});
-  const emailLogs = useQuery(api.emailLog.listByPatient, { callerId, patientId: pId });
+  const emailLogs = useQuery(api.emailLog.listByPatient, hasIds ? { callerId, patientId: pId } : "skip");
 
   if (patient === undefined) {
     return (
@@ -845,9 +846,10 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
   const [showRawData, setShowRawData] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
+  const hasIds = !!(userId && patientId);
   const callerId = userId as Id<"users">;
   const pId = patientId as Id<"patients">;
-  const extractionJobs = useQuery(api.extractionJobs.listByPatient, { callerId, patientId: pId });
+  const extractionJobs = useQuery(api.extractionJobs.listByPatient, hasIds ? { callerId, patientId: pId } : "skip");
 
   const createBatch = useMutation(api.biomarkers.createBatch);
   const removeBiomarker = useMutation(api.biomarkers.remove);
