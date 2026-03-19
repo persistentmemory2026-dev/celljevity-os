@@ -2,7 +2,7 @@
 
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
-import { internal, api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { createInbox, sendEmail, getAttachment, registerWebhook } from "./agentmail";
 import { welcomeEmail, quoteEmail, inviteEmail } from "./emailTemplates";
 import { Id } from "./_generated/dataModel";
@@ -56,7 +56,7 @@ export const createPatientInbox = internalAction({
       });
 
       // Log the email
-      await ctx.runMutation(api.emailLog.insert, {
+      await ctx.runMutation(internal.emailLog.insert, {
         direction: "outbound",
         agentmailMessageId: result.messageId ?? "",
         agentmailThreadId: result.threadId,
@@ -73,7 +73,7 @@ export const createPatientInbox = internalAction({
     } catch (error: any) {
       console.error("Failed to create patient inbox:", error);
       // Log the failure
-      await ctx.runMutation(api.emailLog.insert, {
+      await ctx.runMutation(internal.emailLog.insert, {
         direction: "outbound",
         agentmailMessageId: "",
         inboxId: "",
@@ -157,7 +157,7 @@ export const processInboundEmail = internalAction({
     }
 
     // Log the inbound email
-    await ctx.runMutation(api.emailLog.insert, {
+    await ctx.runMutation(internal.emailLog.insert, {
       direction: "inbound",
       agentmailMessageId: args.messageId,
       agentmailThreadId: args.threadId,
@@ -235,7 +235,7 @@ export const sendQuoteEmail = internalAction({
         text: template.text,
       });
 
-      await ctx.runMutation(api.emailLog.insert, {
+      await ctx.runMutation(internal.emailLog.insert, {
         direction: "outbound",
         agentmailMessageId: result.messageId ?? "",
         agentmailThreadId: result.threadId,
@@ -252,7 +252,7 @@ export const sendQuoteEmail = internalAction({
       });
     } catch (error: any) {
       console.error("Failed to send quote email:", error);
-      await ctx.runMutation(api.emailLog.insert, {
+      await ctx.runMutation(internal.emailLog.insert, {
         direction: "outbound",
         agentmailMessageId: "",
         inboxId: inboxId ?? "",
@@ -315,7 +315,7 @@ export const sendInviteEmail = internalAction({
         text: template.text,
       });
 
-      await ctx.runMutation(api.emailLog.insert, {
+      await ctx.runMutation(internal.emailLog.insert, {
         direction: "outbound",
         agentmailMessageId: result.messageId ?? "",
         agentmailThreadId: result.threadId,
@@ -331,7 +331,7 @@ export const sendInviteEmail = internalAction({
       });
     } catch (error: any) {
       console.error("Failed to send invite email:", error);
-      await ctx.runMutation(api.emailLog.insert, {
+      await ctx.runMutation(internal.emailLog.insert, {
         direction: "outbound",
         agentmailMessageId: "",
         inboxId: inboxId ?? "",

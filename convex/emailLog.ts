@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import { requireRole, requirePatientSelfOrRole } from "./auth";
+import { query, internalMutation } from "./_generated/server";
+import { requirePatientSelfOrRole } from "./auth";
 
-export const insert = mutation({
+export const insert = internalMutation({
   args: {
     direction: v.string(),
     agentmailMessageId: v.string(),

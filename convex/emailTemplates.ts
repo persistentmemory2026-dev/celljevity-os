@@ -19,6 +19,15 @@ const STYLE = `
   .total-row td { border-top: 2px solid #1a1a2e; padding-top: 12px; }
 `;
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function wrap(body: string): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${STYLE}</style></head><body><div class="container">${body}</div></body></html>`;
 }
@@ -495,11 +504,11 @@ export function welcomeEmail(
   const html = wrap(`
     <div class="card">
       <div class="header"><div class="logo">Celljevity</div></div>
-      <h1>${t.greeting}, ${patient.firstName} ${patient.lastName}!</h1>
+      <h1>${t.greeting}, ${escapeHtml(patient.firstName)} ${escapeHtml(patient.lastName)}!</h1>
       <p>${t.intro}</p>
       <div class="highlight">
         <p style="margin:0 0 8px;font-weight:600;">${t.emailLabel}</p>
-        <p class="inbox-address" style="margin:0;">${patient.agentmailAddress}</p>
+        <p class="inbox-address" style="margin:0;">${escapeHtml(patient.agentmailAddress)}</p>
       </div>
       <ul style="color:#4a4a6a;line-height:1.8;">${featureListHtml}</ul>
       <p>${t.sendInstructions}</p>
@@ -564,7 +573,7 @@ export function quoteEmail(
     <div class="card">
       <div class="header"><div class="logo">Celljevity</div></div>
       <h1>${docType} ${quote.quoteNumber}</h1>
-      <p>${t.greeting} ${quote.customerName},</p>
+      <p>${t.greeting} ${escapeHtml(quote.customerName)},</p>
       <p>${isInvoice ? t.attachedInvoice : t.attachedQuote}</p>
       <table class="items">
         <thead>
@@ -619,13 +628,14 @@ export function documentReceivedNotification(
 ): { subject: string; html: string; text: string } {
   const t = docNotificationTranslations[language] ?? docNotificationTranslations["en"];
   const fullName = `${patient.firstName} ${patient.lastName}`;
+  const safeFullName = escapeHtml(fullName);
   const subject = t.subject(fullName);
 
   const html = wrap(`
     <div class="card">
       <div class="header"><div class="logo">Celljevity</div></div>
       <h1>${t.heading}</h1>
-      <p>${t.body(patient.attachmentCount, patient.senderEmail, fullName)}</p>
+      <p>${t.body(patient.attachmentCount, escapeHtml(patient.senderEmail), safeFullName)}</p>
       <p>${t.available}</p>
       <p style="margin-top:24px;">${t.signOff}<br><strong>${t.team}</strong></p>
     </div>
@@ -654,10 +664,10 @@ export function inviteEmail(
   const html = wrap(`
     <div class="card">
       <div class="header"><div class="logo">Celljevity</div></div>
-      <h1>${t.greeting}, ${patient.firstName} ${patient.lastName}!</h1>
+      <h1>${t.greeting}, ${escapeHtml(patient.firstName)} ${escapeHtml(patient.lastName)}!</h1>
       <p>${t.intro}</p>
       <div class="highlight" style="text-align:center;">
-        <a href="${inviteUrl}" style="display:inline-block;padding:12px 32px;background:#78e0ad;color:#1a1a2e;font-weight:700;text-decoration:none;border-radius:8px;font-size:16px;">${t.buttonLabel}</a>
+        <a href="${escapeHtml(inviteUrl)}" style="display:inline-block;padding:12px 32px;background:#78e0ad;color:#1a1a2e;font-weight:700;text-decoration:none;border-radius:8px;font-size:16px;">${t.buttonLabel}</a>
       </div>
       <p style="font-size:13px;color:#9ca3af;">${t.expiryNotice}</p>
       <p style="font-size:13px;color:#9ca3af;">${t.ignoreNotice}</p>

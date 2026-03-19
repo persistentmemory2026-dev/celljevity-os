@@ -132,13 +132,20 @@ export const getActionItems = query({
     }
 
     // 6. New patients (>7 days) with zero treatments
-    const patientIds = new Set(allTreatments.map((t) => t.patientId));
-    // Also check in-progress/completed treatments
-    const otherTreatments = await ctx.db.query("treatments").collect();
-    for (const t of otherTreatments) patientIds.add(t.patientId);
+    // Build set from all non-cancelled treatments (check per-patient via index to avoid full scan)
+    const patientsWithTreatments = new Set(allTreatments.map((t) => t.patientId));
+    for (const p of patients) {
+      if (patientsWithTreatments.has(p._id)) continue;
+      // Only query per-patient if not already found in scheduled treatments
+      const anyTreatment = await ctx.db
+        .query("treatments")
+        .withIndex("by_patient", (q: any) => q.eq("patientId", p._id))
+        .first();
+      if (anyTreatment) patientsWithTreatments.add(p._id);
+    }
 
     for (const p of patients) {
-      if (now - p.createdAt > 7 * DAY_MS && !patientIds.has(p._id)) {
+      if (now - p.createdAt > 7 * DAY_MS && !patientsWithTreatments.has(p._id)) {
         items.push({
           type: "no_treatments",
           priority: "medium",

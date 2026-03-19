@@ -125,6 +125,10 @@ export const acceptInvite = mutation({
       .unique();
     if (existingEmail) throw new Error("A user with this email already exists");
 
+    // Mark invite as used BEFORE creating user to prevent race condition
+    // where concurrent calls both pass the usedAt check
+    await ctx.db.patch(invite._id, { usedAt: Date.now() });
+
     const passwordHash = bcrypt.hashSync(args.password, SALT_ROUNDS);
     const name = `${patient.firstName} ${patient.lastName}`;
     const userId = await ctx.db.insert("users", {
@@ -134,9 +138,6 @@ export const acceptInvite = mutation({
       role: "patient",
       linkedPatientId: invite.patientId,
     });
-
-    // Mark invite as used
-    await ctx.db.patch(invite._id, { usedAt: Date.now() });
 
     return {
       userId,
