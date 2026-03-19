@@ -88,7 +88,11 @@ export const seedAdmin = mutation({
 
     if (existing) return "Admin already exists";
 
-    const passwordHash = bcrypt.hashSync("admin123", SALT_ROUNDS);
+    const password = process.env.ADMIN_SEED_PASSWORD;
+    if (!password) {
+      throw new Error("ADMIN_SEED_PASSWORD environment variable is required to seed admin");
+    }
+    const passwordHash = bcrypt.hashSync(password, SALT_ROUNDS);
     await ctx.db.insert("users", {
       email: "admin@celljevity.com",
       passwordHash,
@@ -96,7 +100,7 @@ export const seedAdmin = mutation({
       role: "admin",
     });
 
-    return "Admin created: admin@celljevity.com / admin123";
+    return "Admin created: admin@celljevity.com (password from ADMIN_SEED_PASSWORD env var)";
   },
 });
 
