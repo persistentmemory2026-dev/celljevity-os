@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { requireRole } from "./auth";
+import { requireRole, requirePatientSelfOrRole } from "./auth";
 
 export const listByPatient = query({
   args: {
@@ -9,7 +9,7 @@ export const listByPatient = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.callerId, ["admin", "coordinator", "provider"]);
+    await requirePatientSelfOrRole(ctx, args.callerId, args.patientId, ["admin", "coordinator", "provider"]);
     const treatments = await ctx.db
       .query("treatments")
       .withIndex("by_patient", (q: any) => q.eq("patientId", args.patientId))

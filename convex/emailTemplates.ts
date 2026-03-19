@@ -19,6 +19,15 @@ const STYLE = `
   .total-row td { border-top: 2px solid #1a1a2e; padding-top: 12px; }
 `;
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function wrap(body: string): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${STYLE}</style></head><body><div class="container">${body}</div></body></html>`;
 }
@@ -379,6 +388,96 @@ const docNotificationTranslations: Record<string, {
   },
 };
 
+const inviteTranslations: Record<string, {
+  subject: string;
+  greeting: string;
+  intro: string;
+  buttonLabel: string;
+  expiryNotice: string;
+  ignoreNotice: string;
+  signOff: string;
+  team: string;
+  footer: string;
+}> = {
+  en: {
+    subject: "You're invited to access your Celljevity health dashboard",
+    greeting: "Hello",
+    intro: "You have been invited to access your personal health dashboard at Celljevity. Click the link below to set your password and get started.",
+    buttonLabel: "Set My Password",
+    expiryNotice: "This link expires in 72 hours.",
+    ignoreNotice: "If you did not expect this email, please ignore it.",
+    signOff: "Kind regards,",
+    team: "Your Celljevity Team",
+    footer: "Celljevity Longevity OS — Your health, our priority",
+  },
+  de: {
+    subject: "Einladung zu Ihrem Celljevity Gesundheits-Dashboard",
+    greeting: "Hallo",
+    intro: "Sie wurden eingeladen, auf Ihr persönliches Gesundheits-Dashboard bei Celljevity zuzugreifen. Klicken Sie auf den untenstehenden Link, um Ihr Passwort festzulegen.",
+    buttonLabel: "Mein Passwort festlegen",
+    expiryNotice: "Dieser Link ist 72 Stunden gültig.",
+    ignoreNotice: "Wenn Sie diese E-Mail nicht erwartet haben, ignorieren Sie sie bitte.",
+    signOff: "Mit freundlichen Grüßen,",
+    team: "Ihr Celljevity Team",
+    footer: "Celljevity Longevity OS — Ihre Gesundheit, unsere Priorität",
+  },
+  nl: {
+    subject: "U bent uitgenodigd voor uw Celljevity gezondheidsdashboard",
+    greeting: "Hallo",
+    intro: "U bent uitgenodigd om toegang te krijgen tot uw persoonlijke gezondheidsdashboard bij Celljevity. Klik op de onderstaande link om uw wachtwoord in te stellen.",
+    buttonLabel: "Mijn wachtwoord instellen",
+    expiryNotice: "Deze link verloopt over 72 uur.",
+    ignoreNotice: "Als u deze e-mail niet verwachtte, kunt u deze negeren.",
+    signOff: "Met vriendelijke groet,",
+    team: "Uw Celljevity Team",
+    footer: "Celljevity Longevity OS — Uw gezondheid, onze prioriteit",
+  },
+  fr: {
+    subject: "Invitation à accéder à votre tableau de bord santé Celljevity",
+    greeting: "Bonjour",
+    intro: "Vous avez été invité(e) à accéder à votre tableau de bord santé personnel chez Celljevity. Cliquez sur le lien ci-dessous pour définir votre mot de passe.",
+    buttonLabel: "Définir mon mot de passe",
+    expiryNotice: "Ce lien expire dans 72 heures.",
+    ignoreNotice: "Si vous n'attendiez pas cet e-mail, veuillez l'ignorer.",
+    signOff: "Cordialement,",
+    team: "Votre équipe Celljevity",
+    footer: "Celljevity Longevity OS — Votre santé, notre priorité",
+  },
+  es: {
+    subject: "Invitación a su panel de salud Celljevity",
+    greeting: "Hola",
+    intro: "Ha sido invitado/a a acceder a su panel de salud personal en Celljevity. Haga clic en el enlace a continuación para establecer su contraseña.",
+    buttonLabel: "Establecer mi contraseña",
+    expiryNotice: "Este enlace caduca en 72 horas.",
+    ignoreNotice: "Si no esperaba este correo, por favor ignórelo.",
+    signOff: "Atentamente,",
+    team: "Su equipo Celljevity",
+    footer: "Celljevity Longevity OS — Su salud, nuestra prioridad",
+  },
+  it: {
+    subject: "Invito ad accedere alla sua dashboard sanitaria Celljevity",
+    greeting: "Salve",
+    intro: "È stato/a invitato/a ad accedere alla sua dashboard sanitaria personale su Celljevity. Clicchi sul link qui sotto per impostare la sua password.",
+    buttonLabel: "Imposta la mia password",
+    expiryNotice: "Questo link scade tra 72 ore.",
+    ignoreNotice: "Se non si aspettava questa e-mail, la ignori.",
+    signOff: "Cordiali saluti,",
+    team: "Il suo team Celljevity",
+    footer: "Celljevity Longevity OS — La sua salute, la nostra priorità",
+  },
+  pt: {
+    subject: "Convite para aceder ao seu painel de saúde Celljevity",
+    greeting: "Olá",
+    intro: "Foi convidado/a a aceder ao seu painel de saúde pessoal na Celljevity. Clique no link abaixo para definir a sua palavra-passe.",
+    buttonLabel: "Definir a minha palavra-passe",
+    expiryNotice: "Este link expira em 72 horas.",
+    ignoreNotice: "Se não esperava este e-mail, por favor ignore-o.",
+    signOff: "Com os melhores cumprimentos,",
+    team: "A sua equipa Celljevity",
+    footer: "Celljevity Longevity OS — A sua saúde, a nossa prioridade",
+  },
+};
+
 // ─── Locale for currency formatting ────────────────────────────────
 
 const currencyLocale: Record<string, string> = {
@@ -405,11 +504,11 @@ export function welcomeEmail(
   const html = wrap(`
     <div class="card">
       <div class="header"><div class="logo">Celljevity</div></div>
-      <h1>${t.greeting}, ${patient.firstName} ${patient.lastName}!</h1>
+      <h1>${t.greeting}, ${escapeHtml(patient.firstName)} ${escapeHtml(patient.lastName)}!</h1>
       <p>${t.intro}</p>
       <div class="highlight">
         <p style="margin:0 0 8px;font-weight:600;">${t.emailLabel}</p>
-        <p class="inbox-address" style="margin:0;">${patient.agentmailAddress}</p>
+        <p class="inbox-address" style="margin:0;">${escapeHtml(patient.agentmailAddress)}</p>
       </div>
       <ul style="color:#4a4a6a;line-height:1.8;">${featureListHtml}</ul>
       <p>${t.sendInstructions}</p>
@@ -474,7 +573,7 @@ export function quoteEmail(
     <div class="card">
       <div class="header"><div class="logo">Celljevity</div></div>
       <h1>${docType} ${quote.quoteNumber}</h1>
-      <p>${t.greeting} ${quote.customerName},</p>
+      <p>${t.greeting} ${escapeHtml(quote.customerName)},</p>
       <p>${isInvoice ? t.attachedInvoice : t.attachedQuote}</p>
       <table class="items">
         <thead>
@@ -529,13 +628,14 @@ export function documentReceivedNotification(
 ): { subject: string; html: string; text: string } {
   const t = docNotificationTranslations[language] ?? docNotificationTranslations["en"];
   const fullName = `${patient.firstName} ${patient.lastName}`;
+  const safeFullName = escapeHtml(fullName);
   const subject = t.subject(fullName);
 
   const html = wrap(`
     <div class="card">
       <div class="header"><div class="logo">Celljevity</div></div>
       <h1>${t.heading}</h1>
-      <p>${t.body(patient.attachmentCount, patient.senderEmail, fullName)}</p>
+      <p>${t.body(patient.attachmentCount, escapeHtml(patient.senderEmail), safeFullName)}</p>
       <p>${t.available}</p>
       <p style="margin-top:24px;">${t.signOff}<br><strong>${t.team}</strong></p>
     </div>
@@ -552,4 +652,40 @@ ${t.signOff}
 ${t.team}`;
 
   return { subject, html, text };
+}
+
+export function inviteEmail(
+  patient: { firstName: string; lastName: string },
+  inviteUrl: string,
+  language = "en",
+): { subject: string; html: string; text: string } {
+  const t = inviteTranslations[language] ?? inviteTranslations["en"];
+
+  const html = wrap(`
+    <div class="card">
+      <div class="header"><div class="logo">Celljevity</div></div>
+      <h1>${t.greeting}, ${escapeHtml(patient.firstName)} ${escapeHtml(patient.lastName)}!</h1>
+      <p>${t.intro}</p>
+      <div class="highlight" style="text-align:center;">
+        <a href="${escapeHtml(inviteUrl)}" style="display:inline-block;padding:12px 32px;background:#78e0ad;color:#1a1a2e;font-weight:700;text-decoration:none;border-radius:8px;font-size:16px;">${t.buttonLabel}</a>
+      </div>
+      <p style="font-size:13px;color:#9ca3af;">${t.expiryNotice}</p>
+      <p style="font-size:13px;color:#9ca3af;">${t.ignoreNotice}</p>
+      <p style="margin-top:24px;">${t.signOff}<br><strong>${t.team}</strong></p>
+    </div>
+    <div class="footer">${t.footer}</div>
+  `);
+
+  const text = `${t.greeting}, ${patient.firstName} ${patient.lastName}!
+
+${t.intro}
+
+${t.buttonLabel}: ${inviteUrl}
+
+${t.expiryNotice}
+
+${t.signOff}
+${t.team}`;
+
+  return { subject: t.subject, html, text };
 }

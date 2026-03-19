@@ -68,3 +68,5 @@ Thumbs.db
 .windsurf
 
 .env.local
+.gstack/
+stitch/

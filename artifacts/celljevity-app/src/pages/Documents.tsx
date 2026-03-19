@@ -23,7 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Id } from "@convex/_generated/dataModel";
+import { FolderOpen } from "lucide-react";
+import type { Id, Doc } from "@convex/_generated/dataModel";
 
 interface DocumentsProps {
   userId: string;
@@ -169,7 +170,7 @@ export function Documents({ userId }: DocumentsProps) {
           <Button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)] disabled:opacity-50 transition"
+            className="bg-primary text-primary-foreground hover:brightness-110 shadow-sm disabled:opacity-50 transition"
           >
             {uploading ? "Uploading..." : "+ Upload Document"}
           </Button>
@@ -191,7 +192,7 @@ export function Documents({ userId }: DocumentsProps) {
               onClick={() => setCategory(cat)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 category === cat
-                  ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-card text-foreground border border-border hover:bg-secondary"
               }`}
             >
@@ -238,7 +239,7 @@ export function Documents({ userId }: DocumentsProps) {
         <>
           {/* Documents Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {documents.map((doc) => (
+            {documents.map((doc: Doc<"documents">) => (
               <Card
                 key={doc._id}
                 className="p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-shadow duration-300 group"
@@ -290,7 +291,7 @@ export function Documents({ userId }: DocumentsProps) {
                         });
                       }
                     }}
-                    className="px-3 py-2 bg-[hsl(var(--chart-2))]/10 text-[hsl(var(--chart-2))] rounded-lg hover:bg-[hsl(var(--chart-2))]/20 transition-colors"
+                    className="px-3 py-2 bg-chart-2/10 text-chart-2 rounded-lg hover:bg-chart-2/20 transition-colors"
                     title="Copy share link"
                   >
                     🔗
@@ -308,12 +309,12 @@ export function Documents({ userId }: DocumentsProps) {
 
           {documents.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="text-5xl mb-4 opacity-50 grayscale">📁</div>
+              <div className="mb-4 opacity-50 text-muted-foreground flex justify-center"><FolderOpen className="w-12 h-12" /></div>
               <h3 className="text-lg font-semibold text-foreground mb-2">No documents uploaded</h3>
               <p className="text-muted-foreground mb-6 max-w-sm">Securely store and organize patient documents, lab reports, and invoices.</p>
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
+                className="bg-primary text-primary-foreground hover:brightness-110 shadow-sm"
               >
                 Upload Document
               </Button>

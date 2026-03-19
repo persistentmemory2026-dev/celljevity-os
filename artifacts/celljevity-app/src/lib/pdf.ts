@@ -4,11 +4,11 @@ import { BIOMARKER_DEFINITIONS, BIOMARKER_CATEGORIES, type BiomarkerDefinition }
 
 // ── Shared constants ─────────────────────────────────────────────────────────
 
-const PRIMARY: [number, number, number] = [15, 23, 42]; // #0f172a slate-900
-const ACCENT: [number, number, number] = [37, 99, 235]; // #2563eb blue-600
-const SUCCESS: [number, number, number] = [22, 163, 74]; // #16a34a
-const WARNING: [number, number, number] = [202, 138, 4]; // #ca8a04
-const DANGER: [number, number, number] = [220, 38, 38]; // #dc2626
+const PRIMARY: [number, number, number] = [26, 24, 22]; // #1A1816
+const ACCENT: [number, number, number] = [140, 36, 59]; // #8C243B
+const SUCCESS: [number, number, number] = [30, 64, 52]; // #1E4034
+const WARNING: [number, number, number] = [128, 86, 45]; // #80562D
+const DANGER: [number, number, number] = [90, 35, 40]; // #5A2328
 const TEXT_DARK: [number, number, number] = [51, 51, 51];
 const TEXT_MUTED: [number, number, number] = [120, 120, 120];
 const MARGIN = 14;

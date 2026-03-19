@@ -2,9 +2,13 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { formatCurrency } from "@/lib/utils";
+import type { Doc } from "@convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { FlaskConical } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
 import type { PageId, NavigationContext } from "../App";
 
 interface ServicesProps {
@@ -53,9 +57,9 @@ export function Services({ onNavigate }: ServicesProps) {
     );
   }
 
-  const categories = ["all", ...new Set(services.map((s) => s.category))];
+  const categories = ["all", ...Array.from(new Set((services as any[]).map((s) => String(s.category))))];
 
-  const filteredServices = services.filter((s) => {
+  const filteredServices = services.filter((s: Doc<"services">) => {
     if (selectedCategory !== "all" && s.category !== selectedCategory) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -63,6 +67,19 @@ export function Services({ onNavigate }: ServicesProps) {
     }
     return true;
   });
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants: any = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
 
   return (
     <div className="p-4 max-w-7xl mx-auto space-y-6">
@@ -78,28 +95,26 @@ export function Services({ onNavigate }: ServicesProps) {
         />
         <div className="flex flex-wrap gap-2">
         {categories.map((cat) => (
-          <button
+          <Button
             key={cat}
+            variant={selectedCategory === cat ? "default" : "outline"}
             onClick={() => setSelectedCategory(cat)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              selectedCategory === cat
-                ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
-                : "bg-card text-foreground border border-border hover:bg-secondary"
-            }`}
+            className="min-h-[44px]"
           >
             {cat === "all" ? "All Categories" : cat}
-          </button>
+          </Button>
         ))}
         </div>
       </div>
 
       {/* Services Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredServices?.map((service) => (
-          <Card key={service._id} className="hover:border-primary/50 transition-colors group flex flex-col">
+      <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredServices?.map((service: Doc<"services">) => (
+          <motion.div variants={itemVariants} key={service._id} className="flex h-full">
+          <Card className="hover:border-primary/50 transition-colors group flex flex-col w-full">
             <CardContent className="p-5 flex flex-col flex-1">
               <div className="flex items-start justify-between mb-4">
-                <span className="inline-block px-3 py-1 bg-chart-3/10 text-[hsl(var(--chart-3))] text-xs font-medium rounded-full border border-[hsl(var(--chart-3))]/20">
+                <span className="inline-block px-3 py-1 bg-chart-3/10 text-chart-3 text-xs font-medium rounded-full border border-chart-3/20">
                   {service.category}
                 </span>
                 <span className="text-2xl font-display font-bold text-foreground">
@@ -117,21 +132,23 @@ export function Services({ onNavigate }: ServicesProps) {
                 </p>
               </div>
 
-              <button
-                className="w-full py-2.5 mt-auto border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors font-medium text-sm"
+              <Button
+                variant="outline"
+                className="w-full mt-auto border-primary text-primary hover:bg-primary/10"
                 onClick={() => onNavigate("new-quote", { serviceId: service._id, serviceName: service.name, servicePrice: service.price })}
               >
                 Add to Quote
-              </button>
+              </Button>
             </CardContent>
           </Card>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {filteredServices.length === 0 && (
         <Card className="border-dashed bg-transparent border-2">
           <CardContent className="flex flex-col items-center justify-center p-16 text-center">
-            <div className="text-5xl mb-4 opacity-50 grayscale">🧬</div>
+            <div className="mb-4 opacity-50 text-muted-foreground flex justify-center"><FlaskConical className="w-12 h-12" /></div>
             <h3 className="text-lg font-semibold text-foreground mb-2">No services available</h3>
             <p className="text-muted-foreground mb-6 max-w-sm">Services will appear here once configured by an administrator or if they match your search.</p>
           </CardContent>

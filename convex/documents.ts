@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, action, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireRole } from "./auth";
+import { requireRole, requirePatientSelfOrRole } from "./auth";
 
 // Generate a short-lived upload URL for Convex storage
 export const generateUploadUrl = mutation({
@@ -95,7 +95,7 @@ export const listByPatient = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.userId, ["admin", "coordinator", "provider"]);
+    await requirePatientSelfOrRole(ctx, args.userId, args.patientId, ["admin", "coordinator", "provider"]);
     const docs = await ctx.db
       .query("documents")
       .withIndex("by_patient", (q: any) => q.eq("relatedPatientId", args.patientId))

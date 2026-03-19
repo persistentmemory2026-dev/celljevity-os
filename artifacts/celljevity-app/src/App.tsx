@@ -12,12 +12,25 @@ import { AdminUsers } from "./pages/AdminUsers";
 import { AdminServices } from "./pages/AdminServices";
 import { Patients } from "./pages/Patients";
 import { PatientDetail } from "./pages/PatientDetail";
+import { PatientHome } from "./pages/patient/PatientHome";
+import { MyTreatments } from "./pages/patient/MyTreatments";
+import { MyBiomarkers } from "./pages/patient/MyBiomarkers";
+import { MyDocuments } from "./pages/patient/MyDocuments";
+import { MyItinerary } from "./pages/patient/MyItinerary";
+import { MyProfile } from "./pages/patient/MyProfile";
+import { AcceptInvite } from "./pages/AcceptInvite";
 import { Sidebar } from "./components/Sidebar";
+import { Header } from "./components/Header";
+import { BottomNav } from "./components/BottomNav";
 import { PageBreadcrumb } from "./components/PageBreadcrumb";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AnimatePresence, motion } from "framer-motion";
 
-export type PageId = "dashboard" | "services" | "quotes" | "documents" | "new-quote" | "admin-users" | "admin-services" | "patients" | "patient-detail";
+export type PageId =
+  | "dashboard" | "services" | "quotes" | "documents" | "new-quote"
+  | "admin-users" | "admin-services" | "patients" | "patient-detail"
+  | "my-dashboard" | "my-treatments" | "my-biomarkers" | "my-documents" | "my-itinerary" | "my-profile";
 
 export type NavigationContext = {
   patientId?: string;
@@ -32,7 +45,11 @@ export type User = {
   email: string;
   name: string;
   role: string;
+  linkedPatientId?: string;
 };
+
+const PATIENT_PAGES: PageId[] = ["my-dashboard", "my-treatments", "my-biomarkers", "my-documents", "my-itinerary", "my-profile"];
+const STAFF_PAGES: PageId[] = ["dashboard", "services", "quotes", "documents", "new-quote", "admin-users", "admin-services", "patients", "patient-detail"];
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode; fallback?: React.ReactNode },
@@ -63,7 +80,7 @@ class ErrorBoundary extends React.Component<
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition"
             >
               Reload
             </button>
@@ -111,7 +128,7 @@ class PageErrorBoundary extends React.Component<
                 this.setState({ hasError: false });
                 this.props.onReset?.();
               }}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition"
             >
               Try Again
             </button>
@@ -124,12 +141,18 @@ class PageErrorBoundary extends React.Component<
   }
 }
 
+function getInviteToken(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("invite");
+}
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<PageId>("dashboard");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [navContext, setNavContext] = useState<NavigationContext>({});
   const [loading, setLoading] = useState(true);
+  const [inviteToken, setInviteToken] = useState<string | null>(getInviteToken);
 
   const login = useMutation(api.auth.login);
 
@@ -152,6 +175,7 @@ function App() {
         email: meResult.email ?? "",
         name: meResult.name ?? "",
         role: meResult.role ?? "patient",
+        linkedPatientId: meResult.linkedPatientId ?? undefined,
       } as User);
     } else if (meResult === null && savedUserId) {
       // Stored userId is invalid, clear it
@@ -172,10 +196,17 @@ function App() {
   const handleLogin = async (email: string, password: string) => {
     const result = await login({ email, password });
     if (result) {
-      const userData = { ...result, _id: result.userId } as User;
+      const userData: User = {
+        _id: result.userId,
+        email: result.email,
+        name: result.name,
+        role: result.role,
+        linkedPatientId: result.linkedPatientId ?? undefined,
+      };
       setUser(userData);
       localStorage.setItem("userId", result.userId);
-      setCurrentPage("dashboard");
+      // Navigate patient users to patient dashboard
+      setCurrentPage(result.role === "patient" ? "my-dashboard" : "dashboard");
       return true;
     }
     return false;
@@ -213,27 +244,56 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark text-foreground">
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user && inviteToken) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <AcceptInvite
+          token={inviteToken}
+          onAccepted={(userData) => {
+            setUser(userData);
+            setInviteToken(null);
+            // Clear invite param from URL
+            window.history.replaceState({}, "", window.location.pathname);
+            setCurrentPage("my-dashboard");
+          }}
+        />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="dark">
+      <div className="min-h-screen bg-background text-foreground">
         <Login onLogin={handleLogin} />
       </div>
     );
   }
 
+  const isPatient = user.role === "patient";
+  const defaultPage = isPatient ? "my-dashboard" : "dashboard";
+
   const renderPage = () => {
+    // Guard: patients can only access patient pages
+    if (isPatient && STAFF_PAGES.includes(currentPage)) {
+      return <PatientHome userId={user._id} linkedPatientId={user.linkedPatientId!} onNavigate={handleNavigate} />;
+    }
+    // Guard: staff cannot access patient pages
+    if (!isPatient && PATIENT_PAGES.includes(currentPage)) {
+      return <Dashboard userId={user._id} onNavigate={handleNavigate} />;
+    }
     // Guard admin pages for non-admin users
     if ((currentPage === "admin-users" || currentPage === "admin-services") && user.role !== "admin") {
       return <Dashboard userId={user._id} onNavigate={handleNavigate} />;
     }
 
     switch (currentPage) {
+      // Staff pages
       case "dashboard":
         return <Dashboard userId={user._id} onNavigate={handleNavigate} />;
       case "services":
@@ -265,23 +325,41 @@ function App() {
         ) : (
           <Patients userId={user._id} onNavigate={handleNavigate} />
         );
+
+      // Patient pages
+      case "my-dashboard":
+        return <PatientHome userId={user._id} linkedPatientId={user.linkedPatientId!} onNavigate={handleNavigate} />;
+      case "my-treatments":
+        return <MyTreatments userId={user._id} linkedPatientId={user.linkedPatientId!} />;
+      case "my-biomarkers":
+        return <MyBiomarkers userId={user._id} linkedPatientId={user.linkedPatientId!} />;
+      case "my-documents":
+        return <MyDocuments userId={user._id} linkedPatientId={user.linkedPatientId!} />;
+      case "my-itinerary":
+        return <MyItinerary userId={user._id} linkedPatientId={user.linkedPatientId!} />;
+      case "my-profile":
+        return <MyProfile userId={user._id} />;
+
       default:
-        return <Dashboard userId={user._id} onNavigate={handleNavigate} />;
+        return isPatient
+          ? <PatientHome userId={user._id} linkedPatientId={user.linkedPatientId!} onNavigate={handleNavigate} />
+          : <Dashboard userId={user._id} onNavigate={handleNavigate} />;
     }
   };
 
   return (
     <ErrorBoundary>
       <TooltipProvider delayDuration={300}>
-        <div className="min-h-screen bg-background text-foreground dark flex">
+        <div className="h-screen w-full overflow-hidden bg-background text-foreground">
           <Sidebar
             currentPage={currentPage}
             onNavigate={handleNavigate}
             user={user}
             onLogout={handleLogout}
           />
-          <main className="flex-1 overflow-auto md:ml-0 ml-0 pt-14 md:pt-0">
-            <div className="px-5 md:px-8 pt-6 pb-2">
+          <Header user={user} currentPage={currentPage} onNavigate={handleNavigate} />
+          <main className="ml-0 md:ml-64 pt-16 h-screen overflow-y-auto bg-background relative">
+            <div className="px-5 md:px-8 py-4">
               <PageBreadcrumb
                 currentPage={currentPage}
                 navContext={navContext}
@@ -289,13 +367,26 @@ function App() {
                 userId={user._id}
               />
             </div>
-            <PageErrorBoundary
-              key={currentPage}
-              onReset={() => setCurrentPage("dashboard")}
-            >
-              {renderPage()}
-            </PageErrorBoundary>
+            <div className="pb-24 md:pb-8">
+              <PageErrorBoundary
+                key={currentPage}
+                onReset={() => setCurrentPage(defaultPage)}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentPage}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    {renderPage()}
+                  </motion.div>
+                </AnimatePresence>
+              </PageErrorBoundary>
+            </div>
           </main>
+          <BottomNav currentPage={currentPage} onNavigate={handleNavigate} user={user} />
         </div>
         <Toaster />
       </TooltipProvider>

@@ -20,6 +20,7 @@ import type * as extractionActions from "../extractionActions.js";
 import type * as extractionJobs from "../extractionJobs.js";
 import type * as geminiExtractor from "../geminiExtractor.js";
 import type * as http from "../http.js";
+import type * as invites from "../invites.js";
 import type * as itineraries from "../itineraries.js";
 import type * as itineraryItems from "../itineraryItems.js";
 import type * as patients from "../patients.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   extractionJobs: typeof extractionJobs;
   geminiExtractor: typeof geminiExtractor;
   http: typeof http;
+  invites: typeof invites;
   itineraries: typeof itineraries;
   itineraryItems: typeof itineraryItems;
   patients: typeof patients;

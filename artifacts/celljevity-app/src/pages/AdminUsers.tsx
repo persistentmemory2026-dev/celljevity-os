@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { Id } from "@convex/_generated/dataModel";
+import { Id, Doc } from "@convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,7 @@ function roleBadgeColor(role: string) {
     case "coordinator":
       return "bg-primary/10 text-primary border-transparent";
     case "provider":
-      return "bg-[hsl(var(--chart-2))]/10 text-[hsl(var(--chart-2))] border-transparent";
+      return "bg-chart-2/10 text-chart-2 border-transparent";
     case "patient":
       return "bg-secondary text-muted-foreground border-transparent";
     default:
@@ -204,7 +204,7 @@ export function AdminUsers({ userId }: AdminUsersProps) {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-display font-bold text-foreground">User Management</h1>
         <Button 
-          className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]" 
+          className="bg-primary text-primary-foreground hover:brightness-110 shadow-sm" 
           onClick={() => setCreateOpen(true)}
         >
           + Add User
@@ -229,7 +229,7 @@ export function AdminUsers({ userId }: AdminUsersProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((user) => (
+              users.map((user: Doc<"users">) => (
                 <TableRow key={user._id} className="hover:bg-secondary/40 transition-colors border-border/50">
                   <TableCell className="font-medium text-foreground">{user.name}</TableCell>
                   <TableCell className="text-muted-foreground">{user.email}</TableCell>

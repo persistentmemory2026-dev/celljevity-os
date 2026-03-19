@@ -11,12 +11,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { Stethoscope } from "lucide-react";
+import { motion } from "framer-motion";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogHeader, ResponsiveDialogTitle, ResponsiveDialogFooter,
+} from "@/components/ResponsiveDialog";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
@@ -25,6 +30,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PatientsProps {
   userId: string;
@@ -34,8 +40,8 @@ interface PatientsProps {
 const STATUS_TABS = ["all", "active", "inactive", "archived"] as const;
 
 const statusBadgeColor: Record<string, string> = {
-  active: "bg-chart-2/10 text-[hsl(var(--chart-2))]",     // Mint
-  inactive: "bg-chart-1/10 text-[hsl(var(--chart-1))]",   // Purple
+  active: "bg-chart-2/10 text-chart-2",     // Mint
+  inactive: "bg-chart-1/10 text-chart-1",   // Purple
   archived: "bg-secondary text-muted-foreground",         // Muted gray
 };
 
@@ -47,6 +53,7 @@ export function Patients({ userId, onNavigate }: PatientsProps) {
   const [archiveTarget, setArchiveTarget] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const patients = useQuery(api.patients.list, {
     callerId: userId as Id<"users">,
@@ -183,17 +190,17 @@ export function Patients({ userId, onNavigate }: PatientsProps) {
   }
 
   const patientForm = (
-    <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-      <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto px-4 md:px-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div><Label className="text-foreground">First Name *</Label><Input className="bg-card text-foreground border-border" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></div>
         <div><Label className="text-foreground">Last Name *</Label><Input className="bg-card text-foreground border-border" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div><Label className="text-foreground">Email</Label><Input className="bg-card text-foreground border-border" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
         <div><Label className="text-foreground">Phone</Label><Input className="bg-card text-foreground border-border" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div><Label className="text-foreground">Date of Birth</Label><Input className="bg-card text-foreground border-border [color-scheme:dark]" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} /></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><Label className="text-foreground">Date of Birth</Label><Input className="bg-card text-foreground border-border" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} /></div>
         <div>
           <Label className="text-foreground">Gender</Label>
           <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v })}>
@@ -207,7 +214,7 @@ export function Patients({ userId, onNavigate }: PatientsProps) {
         </div>
       </div>
       <div><Label className="text-foreground">Street</Label><Input className="bg-card text-foreground border-border" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} /></div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div><Label className="text-foreground">Postal Code</Label><Input className="bg-card text-foreground border-border" value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} /></div>
         <div><Label className="text-foreground">City</Label><Input className="bg-card text-foreground border-border" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
         <div><Label className="text-foreground">Country</Label><Input className="bg-card text-foreground border-border" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
@@ -217,11 +224,24 @@ export function Patients({ userId, onNavigate }: PatientsProps) {
     </div>
   );
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants: any = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
+
   return (
     <div className="p-4 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-display font-bold text-foreground">Patients</h1>
-        <Button className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]" onClick={() => { resetForm(); setCreateOpen(true); }}>
+        <Button className="bg-primary text-primary-foreground hover:brightness-110 shadow-sm" onClick={() => { resetForm(); setCreateOpen(true); }}>
           + New Patient
         </Button>
       </div>
@@ -239,9 +259,9 @@ export function Patients({ userId, onNavigate }: PatientsProps) {
             <button
               key={tab}
               onClick={() => setStatusFilter(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === tab 
-                  ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]" 
+                  ? "bg-primary text-primary-foreground shadow-sm" 
                   : "bg-card text-foreground border border-border hover:bg-secondary"
               }`}
             >
@@ -251,7 +271,49 @@ export function Patients({ userId, onNavigate }: PatientsProps) {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table / Cards */}
+      {isMobile ? (
+        <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-4">
+          {filtered && filtered.length === 0 ? (
+            <Card className="p-8 text-center flex flex-col items-center">
+                  <div className="mb-4 opacity-50 text-muted-foreground flex justify-center"><Stethoscope className="w-12 h-12" /></div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No patients yet</h3>
+              <p className="text-muted-foreground mb-6 max-w-sm">Add your first patient to start managing their care.</p>
+              <Button
+                onClick={() => { resetForm(); setCreateOpen(true); }}
+                className="bg-primary text-primary-foreground min-h-[44px]"
+              >
+                Add Patient
+              </Button>
+            </Card>
+          ) : (
+            filtered?.map((p: any) => (
+              <motion.div variants={itemVariants} key={p._id}>
+              <Card className="overflow-hidden" onClick={() => onNavigate("patient-detail", p._id)}>
+                <CardContent className="p-4 relative">
+                  <div className="pr-20 mb-2">
+                    <p className="font-medium text-lg text-foreground truncate">{p.firstName} {p.lastName}</p>
+                    <p className="text-sm text-muted-foreground truncate">{p.email || p.phone || "No contact info"}</p>
+                  </div>
+                  <div className="absolute top-4 right-4">
+                    <Badge variant="outline" className={`border-0 ${statusBadgeColor[p.status] || ""}`}>{p.status}</Badge>
+                  </div>
+                  <div className="flex gap-2 mt-4 pt-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => openEdit(p)}>Edit</Button>
+                    {p.status !== "archived" && (
+                      <Button variant="outline" className="flex-1 min-h-[44px] text-destructive hover:bg-destructive/10 border-transparent bg-destructive/5" onClick={() => setArchiveTarget(p)}>
+                        Archive
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              </motion.div>
+            ))
+          )}
+        </motion.div>
+      ) : (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 24 }}>
       <Card className="overflow-hidden">
         <Table>
           <TableHeader className="bg-secondary/50 border-b border-border">
@@ -268,12 +330,12 @@ export function Patients({ userId, onNavigate }: PatientsProps) {
               <TableRow>
                 <TableCell colSpan={5} className="py-0">
                   <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="text-5xl mb-4 opacity-50 grayscale">🩺</div>
+                    <div className="mb-4 opacity-50 text-muted-foreground"><Stethoscope className="w-12 h-12" /></div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">No patients yet</h3>
                     <p className="text-muted-foreground mb-6 max-w-sm">Add your first patient to start managing their care.</p>
                     <Button
                       onClick={() => { resetForm(); setCreateOpen(true); }}
-                      className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
+                      className="bg-primary text-primary-foreground hover:brightness-110 shadow-sm"
                     >
                       Add Patient
                     </Button>
@@ -312,34 +374,36 @@ export function Patients({ userId, onNavigate }: PatientsProps) {
           </TableBody>
         </Table>
       </Card>
+      </motion.div>
+      )}
 
       {/* Create Dialog */}
-      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) { setCreateOpen(false); resetForm(); } else setCreateOpen(true); }}>
-        <DialogContent className="max-w-lg bg-card border-border sm:rounded-2xl text-foreground">
-          <DialogHeader><DialogTitle className="font-display">New Patient</DialogTitle></DialogHeader>
+      <ResponsiveDialog open={createOpen} onOpenChange={(open) => { if (!open) { setCreateOpen(false); resetForm(); } else setCreateOpen(true); }}>
+        <ResponsiveDialogContent className="max-w-lg bg-card border-border sm:rounded-2xl text-foreground">
+          <ResponsiveDialogHeader><ResponsiveDialogTitle className="font-display">New Patient</ResponsiveDialogTitle></ResponsiveDialogHeader>
           {patientForm}
-          <DialogFooter>
-            <Button variant="outline" className="border-border hover:bg-secondary text-foreground" onClick={() => { setCreateOpen(false); resetForm(); }}>Cancel</Button>
-            <Button className="bg-primary text-primary-foreground hover:brightness-110" onClick={handleCreate} disabled={saving || !form.firstName || !form.lastName}>
+          <ResponsiveDialogFooter>
+            <Button variant="outline" className="border-border hover:bg-secondary text-foreground min-h-[44px]" onClick={() => { setCreateOpen(false); resetForm(); }}>Cancel</Button>
+            <Button className="bg-primary text-primary-foreground hover:brightness-110 min-h-[44px]" onClick={handleCreate} disabled={saving || !form.firstName || !form.lastName}>
               {saving ? "Creating..." : "Create"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editPatient} onOpenChange={(open) => { if (!open) { setEditPatient(null); resetForm(); } }}>
-        <DialogContent className="max-w-lg bg-card border-border sm:rounded-2xl text-foreground">
-          <DialogHeader><DialogTitle className="font-display">Edit Patient</DialogTitle></DialogHeader>
+      <ResponsiveDialog open={!!editPatient} onOpenChange={(open) => { if (!open) { setEditPatient(null); resetForm(); } }}>
+        <ResponsiveDialogContent className="max-w-lg bg-card border-border sm:rounded-2xl text-foreground">
+          <ResponsiveDialogHeader><ResponsiveDialogTitle className="font-display">Edit Patient</ResponsiveDialogTitle></ResponsiveDialogHeader>
           {patientForm}
-          <DialogFooter>
-            <Button variant="outline" className="border-border hover:bg-secondary text-foreground" onClick={() => { setEditPatient(null); resetForm(); }}>Cancel</Button>
-            <Button className="bg-primary text-primary-foreground hover:brightness-110" onClick={handleUpdate} disabled={saving || !form.firstName || !form.lastName}>
+          <ResponsiveDialogFooter>
+            <Button variant="outline" className="border-border hover:bg-secondary text-foreground min-h-[44px]" onClick={() => { setEditPatient(null); resetForm(); }}>Cancel</Button>
+            <Button className="bg-primary text-primary-foreground hover:brightness-110 min-h-[44px]" onClick={handleUpdate} disabled={saving || !form.firstName || !form.lastName}>
               {saving ? "Saving..." : "Save Changes"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {/* Archive Confirmation */}
       <AlertDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>

@@ -17,8 +17,9 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogHeader,
+  ResponsiveDialogTitle, ResponsiveDialogFooter,
+} from "@/components/ResponsiveDialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -30,8 +31,10 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceArea, RadialBarChart, RadialBar, BarChart, Bar, Cell, ReferenceLine } from "recharts";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Plane, Hotel, Syringe, Stethoscope, Car, Sun } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { EtherealBiomarkerCard } from "@/components/dashboard/EtherealBiomarkerCard";
 
 interface PatientDetailProps {
   userId: string;
@@ -40,28 +43,169 @@ interface PatientDetailProps {
 }
 
 const treatmentStatusColors: Record<string, string> = {
-  scheduled: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-  "in-progress": "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
-  completed: "bg-green-500/10 text-green-400 border border-green-500/20",
-  cancelled: "bg-red-500/10 text-red-400 border border-red-500/20",
+  scheduled: "bg-info/10 text-info border border-info/20",
+  "in-progress": "bg-warning/10 text-warning border border-warning/20",
+  completed: "bg-success/10 text-success border border-success/20",
+  cancelled: "bg-destructive/10 text-destructive border border-destructive/20",
 };
 
 const itineraryStatusColors: Record<string, string> = {
-  draft: "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20",
-  confirmed: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-  "in-progress": "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
-  completed: "bg-green-500/10 text-green-400 border border-green-500/20",
-  cancelled: "bg-red-500/10 text-red-400 border border-red-500/20",
+  draft: "bg-muted text-muted-foreground border border-border",
+  confirmed: "bg-info/10 text-info border border-info/20",
+  "in-progress": "bg-warning/10 text-warning border border-warning/20",
+  completed: "bg-success/10 text-success border border-success/20",
+  cancelled: "bg-destructive/10 text-destructive border border-destructive/20",
 };
 
-const itemTypeIcons: Record<string, string> = {
-  travel: "\u2708\uFE0F",
-  accommodation: "\uD83C\uDFE8",
-  treatment: "\uD83D\uDC89",
-  consultation: "\uD83E\uDE7A",
-  transfer: "\uD83D\uDE97",
-  free: "\u2600\uFE0F",
+const ITEM_TYPE_ICONS: Record<string, React.ReactNode> = {
+  travel: <Plane className="h-5 w-5 text-info" />,
+  accommodation: <Hotel className="h-5 w-5 text-chart-3" />,
+  treatment: <Syringe className="h-5 w-5 text-primary" />,
+  consultation: <Stethoscope className="h-5 w-5 text-success" />,
+  transfer: <Car className="h-5 w-5 text-warning" />,
+  free: <Sun className="h-5 w-5 text-chart-1" />,
 };
+
+function PatientAccessButton({
+  userId,
+  patientId,
+  patientEmail,
+  loginStatus,
+  createPatientLogin,
+  toast,
+}: {
+  userId: string;
+  patientId: string;
+  patientEmail?: string;
+  loginStatus: { hasLogin: boolean; email: string | null } | undefined;
+  createPatientLogin: any;
+  toast: any;
+}) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string } | null>(null);
+
+  const createInvite = useMutation(api.invites.createInvite);
+  const inviteStatus = useQuery(api.invites.getInviteStatus, {
+    callerId: userId as Id<"users">,
+    patientId: patientId as Id<"patients">,
+  });
+
+  if (loginStatus?.hasLogin) {
+    return (
+      <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+        Has Login
+      </Badge>
+    );
+  }
+
+  if (!patientEmail) {
+    return (
+      <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
+        No email
+      </Badge>
+    );
+  }
+
+  const handleSendInvite = async () => {
+    setSendingInvite(true);
+    try {
+      const result = await createInvite({
+        callerId: userId as Id<"users">,
+        patientId: patientId as Id<"patients">,
+      });
+      toast({ title: `Invite sent to ${result.email}` });
+    } catch (e: any) {
+      toast({ title: e.message || "Failed to send invite", variant: "destructive" });
+    } finally {
+      setSendingInvite(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!password || password.length < 6) {
+      toast({ title: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+    setCreating(true);
+    try {
+      await createPatientLogin({
+        callerId: userId as Id<"users">,
+        patientId: patientId as Id<"patients">,
+        password,
+      });
+      setCreatedCreds({ email: patientEmail!, password });
+      toast({ title: "Patient login created successfully" });
+    } catch (e: any) {
+      toast({ title: e.message || "Failed to create login", variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={handleSendInvite} disabled={sendingInvite}>
+          {sendingInvite ? "Sending..." : inviteStatus?.hasActiveInvite ? "Resend Invite" : "Send Invite"}
+        </Button>
+        {inviteStatus?.hasActiveInvite && inviteStatus.sentAt && (
+          <span className="text-xs text-muted-foreground">
+            Sent {new Date(inviteStatus.sentAt).toLocaleDateString()}
+          </span>
+        )}
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          Set Password
+        </Button>
+      </div>
+      <ResponsiveDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setPassword(""); setCreatedCreds(null); } }}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Set Patient Password</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
+          {createdCreds ? (
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">Login created. Share these credentials with the patient:</p>
+              <div className="bg-secondary rounded-lg p-4 space-y-2 font-mono text-sm">
+                <div><span className="text-muted-foreground">Email:</span> <span className="text-foreground">{createdCreds.email}</span></div>
+                <div><span className="text-muted-foreground">Password:</span> <span className="text-foreground">{createdCreds.password}</span></div>
+              </div>
+              <ResponsiveDialogFooter>
+                <Button onClick={() => { setOpen(false); setPassword(""); setCreatedCreds(null); }}>Done</Button>
+              </ResponsiveDialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Patient Email</Label>
+                <Input value={patientEmail} disabled className="mt-1" />
+              </div>
+              <div>
+                <Label>Password</Label>
+                <Input
+                  type="text"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Set a temporary password"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Minimum 6 characters. Share securely with the patient.</p>
+              </div>
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreate} disabled={creating}>
+                  {creating ? "Creating..." : "Create Login"}
+                </Button>
+              </ResponsiveDialogFooter>
+            </div>
+          )}
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+    </>
+  );
+}
 
 export function PatientDetail({ userId, patientId, onNavigate }: PatientDetailProps) {
   const hasIds = !!(userId && patientId);
@@ -76,6 +220,8 @@ export function PatientDetail({ userId, patientId, onNavigate }: PatientDetailPr
   const itineraries = useQuery(api.itineraries.listByPatient, hasIds ? { callerId, patientId: pId } : "skip");
   const activeServices = useQuery(api.services.list, {});
   const emailLogs = useQuery(api.emailLog.listByPatient, hasIds ? { callerId, patientId: pId } : "skip");
+  const loginStatus = useQuery(api.users.getPatientLoginStatus, hasIds ? { callerId, patientId: pId } : "skip");
+  const createPatientLogin = useMutation(api.users.createPatientLogin);
 
   if (patient === undefined) {
     return (
@@ -87,33 +233,45 @@ export function PatientDetail({ userId, patientId, onNavigate }: PatientDetailPr
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="outline" size="sm" onClick={() => onNavigate("patients")}>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+        <Button variant="outline" size="sm" className="w-fit" onClick={() => onNavigate("patients")}>
           &larr; Back
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             {patient.firstName} {patient.lastName}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {patient.email && <><a href={`mailto:${patient.email}`} className="text-blue-600 hover:underline">{patient.email}</a>{" | "}</>}
-            {patient.phone && <><a href={`tel:${patient.phone}`} className="text-blue-600 hover:underline">{patient.phone}</a>{" | "}</>}
+            {patient.email && <><a href={`mailto:${patient.email}`} className="text-primary hover:underline">{patient.email}</a>{" | "}</>}
+            {patient.phone && <><a href={`tel:${patient.phone}`} className="text-primary hover:underline">{patient.phone}</a>{" | "}</>}
             Status: {patient.status}
           </p>
+        </div>
+        <div className="sm:ml-auto">
+          <PatientAccessButton
+            userId={userId}
+            patientId={patientId}
+            patientEmail={patient.email}
+            loginStatus={loginStatus}
+            createPatientLogin={createPatientLogin}
+            toast={toast}
+          />
         </div>
       </div>
 
       <Tabs defaultValue="stammdaten">
-        <TabsList className="mb-6">
-          <TabsTrigger value="stammdaten">Stammdaten</TabsTrigger>
-          <TabsTrigger value="treatments">Behandlungen</TabsTrigger>
-          <TabsTrigger value="reports">Berichte</TabsTrigger>
-          <TabsTrigger value="biomarkers">Biomarker</TabsTrigger>
-          <TabsTrigger value="itinerary">Reiseplan</TabsTrigger>
-          <TabsTrigger value="emails">E-Mails</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 sm:-mx-8 px-4 sm:px-8 mb-6 scrollbar-none">
+          <TabsList className="w-max min-h-[44px]">
+            <TabsTrigger value="stammdaten">Stammdaten</TabsTrigger>
+            <TabsTrigger value="treatments">Behandlungen</TabsTrigger>
+            <TabsTrigger value="reports">Berichte</TabsTrigger>
+            <TabsTrigger value="biomarkers">Biomarker</TabsTrigger>
+            <TabsTrigger value="itinerary">Reiseplan</TabsTrigger>
+            <TabsTrigger value="emails">E-Mails</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="stammdaten">
           <StammdatenTab patient={patient} userId={userId} />
@@ -218,19 +376,19 @@ function StammdatenTab({ patient, userId }: { patient: any; userId: string }) {
   ];
 
   return (
-    <div className="bg-card rounded-xl shadow-sm border border-border/50 p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="glass-card rounded-xl p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <h2 className="text-lg font-semibold">Patient Information</h2>
         {!editing ? (
-          <Button variant="outline" onClick={() => { setForm({ ...patient }); setEditing(true); }}>Edit</Button>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => { setForm({ ...patient }); setEditing(true); }}>Edit</Button>
         ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setEditing(false)}>Cancel</Button>
+            <Button className="flex-1 sm:flex-none" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
           </div>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {fields.map(({ label, key, type }) => (
           <div key={key}>
             <Label className="text-muted-foreground text-sm">{label}</Label>
@@ -319,6 +477,7 @@ function TreatmentsTab({ userId, patientId, treatments, services }: {
   const createTreatment = useMutation(api.treatments.create);
   const updateTreatment = useMutation(api.treatments.update);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const handleCreate = async () => {
     if (!serviceId) return;
@@ -363,12 +522,42 @@ function TreatmentsTab({ userId, patientId, treatments, services }: {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
         <h2 className="text-lg font-semibold">Treatments</h2>
-        <Button onClick={() => setCreateOpen(true)}>+ Add Treatment</Button>
+        <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>+ Add Treatment</Button>
       </div>
 
-      <div className="bg-card rounded-xl shadow-sm border border-border/50">
+      {isMobile ? (
+        <div className="space-y-4">
+          {!treatments || treatments.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8 glass-card rounded-xl">No treatments yet. Add a treatment to get started.</div>
+          ) : (
+            treatments.map((t: any) => (
+              <div key={t._id} className="glass-card rounded-xl p-4">
+                <div className="flex justify-between items-start mb-2 gap-2">
+                  <h3 className="font-semibold">{t.serviceName}</h3>
+                  <Badge className={treatmentStatusColors[t.status] || ""}>{t.status}</Badge>
+                </div>
+                <div className="text-sm text-muted-foreground mb-4 space-y-1">
+                  <p>Scheduled: {t.scheduledDate ? formatDate(t.scheduledDate) : "-"}</p>
+                  <p>Completed: {t.completedDate ? formatDate(t.completedDate) : "-"}</p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  {nextStatus[t.status] && (
+                    <Button variant="outline" className="min-h-[44px]" size="sm" onClick={() => handleStatusChange(t._id, nextStatus[t.status])}>
+                      {nextStatus[t.status] === "in-progress" ? "Start" : "Complete"}
+                    </Button>
+                  )}
+                  {t.status !== "cancelled" && t.status !== "completed" && (
+                    <Button variant="outline" className="min-h-[44px] text-destructive" size="sm" onClick={() => handleStatusChange(t._id, "cancelled")}>Cancel</Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+      <div className="glass-card rounded-xl">
         <Table>
           <TableHeader>
             <TableRow>
@@ -397,7 +586,7 @@ function TreatmentsTab({ userId, patientId, treatments, services }: {
                         </Button>
                       )}
                       {t.status !== "cancelled" && t.status !== "completed" && (
-                        <Button variant="outline" size="sm" className="text-red-600" onClick={() => handleStatusChange(t._id, "cancelled")}>Cancel</Button>
+                        <Button variant="outline" size="sm" className="text-destructive" onClick={() => handleStatusChange(t._id, "cancelled")}>Cancel</Button>
                       )}
                     </div>
                   </TableCell>
@@ -407,10 +596,11 @@ function TreatmentsTab({ userId, patientId, treatments, services }: {
           </TableBody>
         </Table>
       </div>
+      )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Add Treatment</DialogTitle></DialogHeader>
+      <ResponsiveDialog open={createOpen} onOpenChange={setCreateOpen}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader><ResponsiveDialogTitle>Add Treatment</ResponsiveDialogTitle></ResponsiveDialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <Label>Service</Label>
@@ -426,12 +616,12 @@ function TreatmentsTab({ userId, patientId, treatments, services }: {
             <div><Label>Scheduled Date</Label><Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} /></div>
             <div><Label>Notes</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} /></div>
           </div>
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
             <Button onClick={handleCreate} disabled={saving || !serviceId}>{saving ? "Adding..." : "Add"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }
@@ -521,9 +711,9 @@ function ReportsTab({ userId, patientId, documents, treatments }: {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
         <h2 className="text-lg font-semibold">Reports & Documents</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Select value={uploadCategory} onValueChange={setUploadCategory}>
             <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -540,14 +730,14 @@ function ReportsTab({ userId, patientId, documents, treatments }: {
       </div>
 
       {!documents || documents.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground bg-card rounded-xl shadow-sm border border-border/50">
+        <div className="text-center py-12 text-muted-foreground glass-card rounded-xl">
           <p className="text-lg mb-2">No documents yet</p>
           <p className="text-sm">Upload a report to get started.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {documents.map((doc: any) => (
-            <div key={doc._id} className="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+            <div key={doc._id} className="glass-card rounded-xl p-4">
               <div className="flex items-start justify-between mb-2">
                 <span className="text-2xl">{doc.mimeType?.includes("pdf") ? "\uD83D\uDCC4" : "\uD83D\uDCCE"}</span>
                 <Badge variant="outline">{doc.category}</Badge>
@@ -559,11 +749,11 @@ function ReportsTab({ userId, patientId, documents, treatments }: {
                   href={doc.url ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-center text-xs font-medium hover:bg-blue-500/20 transition-all duration-200"
+                  className="flex-1 py-1.5 bg-info/10 text-info border border-info/20 rounded-lg text-center text-xs font-medium hover:bg-info/20 transition-all duration-200"
                 >
                   Download
                 </a>
-                <button onClick={() => setDeleteTarget(doc._id)} className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-all duration-200 text-xs">
+                <button onClick={() => setDeleteTarget(doc._id)} className="px-3 py-1.5 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg hover:bg-destructive/20 transition-all duration-200 text-xs">
                   Delete
                 </button>
               </div>
@@ -580,7 +770,7 @@ function ReportsTab({ userId, patientId, documents, treatments }: {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -605,9 +795,9 @@ function getValueStatus(value: number, refLow?: number | null, refHigh?: number 
 }
 
 const STATUS_COLORS = {
-  green: { text: "text-green-500", bg: "bg-green-500", dot: "bg-green-500", border: "border-green-500/30" },
-  yellow: { text: "text-yellow-500", bg: "bg-yellow-500", dot: "bg-yellow-500", border: "border-yellow-500/30" },
-  red: { text: "text-red-500", bg: "bg-red-500", dot: "bg-red-500", border: "border-red-500/30" },
+  green: { text: "text-success", bg: "bg-success", dot: "bg-success", border: "border-success/30" },
+  yellow: { text: "text-warning", bg: "bg-warning", dot: "bg-warning", border: "border-warning/30" },
+  red: { text: "text-destructive", bg: "bg-destructive", dot: "bg-destructive", border: "border-destructive/30" },
   neutral: { text: "text-muted-foreground", bg: "bg-muted", dot: "bg-muted-foreground", border: "border-border" },
 };
 
@@ -615,105 +805,35 @@ function CategoryGaugeCard({ category, inRange, total, onClick }: {
   category: string; inRange: number; total: number; onClick: () => void;
 }) {
   const percent = total > 0 ? Math.round((inRange / total) * 100) : 0;
-  const color = percent > 80 ? "#22c55e" : percent >= 50 ? "#eab308" : "#ef4444";
+  const color = percent > 80 ? "var(--success)" : percent >= 50 ? "var(--warning)" : "var(--destructive)";
   const data = [{ value: percent, fill: color }];
 
   return (
-    <button onClick={onClick} className="bg-card rounded-xl border border-border/50 p-4 flex flex-col items-center gap-2 hover:border-border hover:shadow-sm transition-all text-center">
-      <div className="w-16 h-16 shrink-0">
+    <button onClick={onClick} className="glass-card rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-muted transition-all duration-300 text-center relative overflow-hidden group">
+      <div className="w-16 h-16 shrink-0 relative z-10">
         <RadialBarChart
           width={64} height={64} cx={32} cy={32}
           innerRadius={20} outerRadius={30} barSize={7}
           data={data} startAngle={90} endAngle={-270}
         >
-          <RadialBar dataKey="value" background={{ fill: "hsl(var(--muted))" }} cornerRadius={4} />
+          <RadialBar dataKey="value" background={{ fill: "var(--muted)" }} cornerRadius={4} />
           <text x={32} y={32} textAnchor="middle" dominantBaseline="middle" className="fill-foreground text-xs font-bold">
             {percent}%
           </text>
         </RadialBarChart>
       </div>
-      <div>
+      <div className="relative z-10">
         <div className="flex items-center justify-center gap-1.5">
           <span className="text-base">{CATEGORY_ICONS[category] || "\uD83D\uDCCA"}</span>
           <span className="text-sm font-medium text-foreground">{category}</span>
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">{inRange}/{total} in range</p>
+        <p className="text-xs text-muted-foreground mt-1">{inRange}/{total} in range</p>
       </div>
     </button>
   );
 }
 
-function BiomarkerSparkCard({ code, name, unit, latestValue, sparkData, refLow, refHigh, isSelected, onClick }: {
-  code: string; name: string; unit: string; latestValue: number;
-  sparkData: { date: string; value: number }[]; refLow?: number | null; refHigh?: number | null;
-  isSelected: boolean; onClick: () => void;
-}) {
-  const status = getValueStatus(latestValue, refLow, refHigh);
-  const colors = STATUS_COLORS[status];
-  const hasMultiplePoints = sparkData.length >= 2;
 
-  return (
-    <button
-      onClick={onClick}
-      className={`bg-card rounded-lg border p-3 text-left transition-all hover:shadow-md ${isSelected ? "ring-2 ring-blue-500 border-blue-500/50" : "border-border/50 hover:border-border"}`}
-    >
-      <div className="flex items-start justify-between mb-1">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs text-muted-foreground truncate">{name}</p>
-          <div className="flex items-baseline gap-1.5 mt-0.5">
-            <span className={`text-lg font-bold ${colors.text}`}>{latestValue}</span>
-            <span className="text-[10px] text-muted-foreground">{unit}</span>
-          </div>
-        </div>
-        <span className={`w-2 h-2 rounded-full mt-1 shrink-0 ${colors.dot}`} />
-      </div>
-
-      {hasMultiplePoints ? (
-        <div className="h-[48px] w-full mt-1 relative">
-          {refLow != null && refHigh != null && (
-            <div
-              className="absolute left-0 right-0 bg-green-500/10 rounded-sm"
-              style={{
-                top: `${Math.max(0, 100 - ((refHigh - Math.min(...sparkData.map(d => d.value), refLow)) / (Math.max(...sparkData.map(d => d.value), refHigh) - Math.min(...sparkData.map(d => d.value), refLow)) * 100))}%`,
-                bottom: `${Math.max(0, (Math.min(...sparkData.map(d => d.value), refLow) === Math.max(...sparkData.map(d => d.value), refHigh) ? 0 : (refLow - Math.min(...sparkData.map(d => d.value), refLow)) / (Math.max(...sparkData.map(d => d.value), refHigh) - Math.min(...sparkData.map(d => d.value), refLow)) * 100))}%`,
-              }}
-            />
-          )}
-          <ChartContainer config={{ value: { label: name, color: status === "green" ? "#22c55e" : status === "yellow" ? "#eab308" : "#ef4444" } }} className="h-[48px] w-full">
-            <LineChart data={sparkData} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-              {refLow != null && refHigh != null && (
-                <ReferenceArea y1={refLow} y2={refHigh} fill="#22c55e" fillOpacity={0.08} />
-              )}
-              <Line type="monotone" dataKey="value" stroke={status === "green" ? "#22c55e" : status === "yellow" ? "#eab308" : "#ef4444"} strokeWidth={1.5} dot={false} />
-            </LineChart>
-          </ChartContainer>
-        </div>
-      ) : (
-        <BulletBar value={latestValue} refLow={refLow} refHigh={refHigh} />
-      )}
-    </button>
-  );
-}
-
-function BulletBar({ value, refLow, refHigh }: { value: number; refLow?: number | null; refHigh?: number | null }) {
-  if (refLow == null || refHigh == null) {
-    return <div className="h-3 mt-2 bg-muted rounded-full" />;
-  }
-  const range = refHigh - refLow;
-  const displayMin = refLow - range * 0.3;
-  const displayMax = refHigh + range * 0.3;
-  const totalRange = displayMax - displayMin;
-  const refLeftPct = ((refLow - displayMin) / totalRange) * 100;
-  const refWidthPct = (range / totalRange) * 100;
-  const valuePct = Math.max(0, Math.min(100, ((value - displayMin) / totalRange) * 100));
-
-  return (
-    <div className="relative h-3 mt-2 bg-muted/50 rounded-full overflow-hidden">
-      <div className="absolute top-0 bottom-0 bg-green-500/20 rounded-sm" style={{ left: `${refLeftPct}%`, width: `${refWidthPct}%` }} />
-      <div className="absolute top-0.5 bottom-0.5 w-1.5 rounded-full bg-foreground" style={{ left: `calc(${valuePct}% - 3px)` }} />
-    </div>
-  );
-}
 
 function BiomarkerDetailChart({ code, name, unit, data, refLow, refHigh, onClose }: {
   code: string; name: string; unit: string;
@@ -734,8 +854,8 @@ function BiomarkerDetailChart({ code, name, unit, data, refLow, refHigh, onClose
     .map((b: any) => ({ date: b.measuredAt, value: b.value, confidence: b.confidence, source: b.source }));
 
   return (
-    <div className="bg-card rounded-xl border border-border/50 p-5 mb-4">
-      <div className="flex items-center justify-between mb-4">
+    <div className="glass-card rounded-xl p-5 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
         <div>
           <h3 className="font-semibold text-foreground">{name}</h3>
           <p className="text-xs text-muted-foreground">
@@ -748,7 +868,7 @@ function BiomarkerDetailChart({ code, name, unit, data, refLow, refHigh, onClose
               <button
                 key={r}
                 onClick={() => setRange(r)}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${range === r ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${range === r ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
               >
                 {r.toUpperCase()}
               </button>
@@ -759,13 +879,13 @@ function BiomarkerDetailChart({ code, name, unit, data, refLow, refHigh, onClose
       </div>
 
       {chartData.length >= 2 ? (
-        <ChartContainer config={{ value: { label: name, color: "#2563eb" } }} className="h-64 w-full">
+        <ChartContainer config={{ value: { label: name, color: "var(--primary)" } }} className="h-64 w-full">
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="date" tickFormatter={(d: string) => new Date(d).toLocaleDateString("de-DE", { month: "short", day: "numeric" })} className="text-[10px]" />
             <YAxis domain={["auto", "auto"]} className="text-[10px]" />
             {refLow != null && refHigh != null && (
-              <ReferenceArea y1={refLow} y2={refHigh} fill="#22c55e" fillOpacity={0.1} label={{ value: "Normal", position: "insideTopRight", className: "fill-green-500 text-[10px]" }} />
+              <ReferenceArea y1={refLow} y2={refHigh} fill="var(--success)" fillOpacity={0.1} label={{ value: "Normal", position: "insideTopRight", className: "fill-success text-[10px]" }} />
             )}
             <ChartTooltip
               content={({ active, payload }) => {
@@ -781,7 +901,7 @@ function BiomarkerDetailChart({ code, name, unit, data, refLow, refHigh, onClose
                 );
               }}
             />
-            <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: "#2563eb" }} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="value" stroke="var(--primary)" strokeWidth={2} dot={{ r: 4, fill: "var(--primary)" }} activeDot={{ r: 6 }} />
           </LineChart>
         </ChartContainer>
       ) : chartData.length === 1 ? (
@@ -805,11 +925,11 @@ function ExtractionJobsList({ jobs }: { jobs: any[] | undefined }) {
 
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
-      completed: "bg-green-500/10 text-green-500 border-green-500/20",
-      processing: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-      review: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-      failed: "bg-red-500/10 text-red-500 border-red-500/20",
-      pending: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+      completed: "bg-success/10 text-success border-success/20",
+      processing: "bg-info/10 text-info border-info/20",
+      review: "bg-warning/10 text-warning border-warning/20",
+      failed: "bg-destructive/10 text-destructive border-destructive/20",
+      pending: "bg-muted text-muted-foreground border-border",
     };
     return map[status] || map.pending;
   };
@@ -817,7 +937,7 @@ function ExtractionJobsList({ jobs }: { jobs: any[] | undefined }) {
   return (
     <div className="space-y-2">
       {jobs.map((job: any) => (
-        <div key={job._id} className="flex items-center justify-between bg-card rounded-lg border border-border/50 px-4 py-2.5">
+        <div key={job._id} className="flex items-center justify-between glass-card rounded-lg px-4 py-2.5">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-foreground truncate">{job.fileName}</p>
             <p className="text-xs text-muted-foreground">{formatDate(job.createdAt)}</p>
@@ -956,9 +1076,9 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
         <p className="text-muted-foreground mb-4">No biomarker data yet.</p>
         <Button onClick={() => setAddOpen(true)}>+ Add Results</Button>
         {/* Add Results Dialog (same as below) */}
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader><DialogTitle>Add Biomarker Results</DialogTitle></DialogHeader>
+        <ResponsiveDialog open={addOpen} onOpenChange={setAddOpen}>
+          <ResponsiveDialogContent className="max-w-2xl">
+            <ResponsiveDialogHeader><ResponsiveDialogTitle>Add Biomarker Results</ResponsiveDialogTitle></ResponsiveDialogHeader>
             <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
               <div><Label>Date Measured</Label><Input type="date" value={measuredAt} onChange={(e) => setMeasuredAt(e.target.value)} /></div>
               {BIOMARKER_CATEGORIES.map((cat: string) => {
@@ -966,7 +1086,7 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
                 return (
                   <div key={cat}>
                     <h3 className="font-semibold text-sm text-muted-foreground mb-2">{cat}</h3>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {markers.map((d: BiomarkerDefinition) => (
                         <div key={d.code} className="flex items-center gap-2">
                           <Label className="text-xs w-32 shrink-0">{d.name}</Label>
@@ -981,12 +1101,12 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
                 );
               })}
             </div>
-            <DialogFooter>
+            <ResponsiveDialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
               <Button onClick={handleBatchSave} disabled={saving}>{saving ? "Saving..." : "Save All"}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </ResponsiveDialogFooter>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
     );
   }
@@ -1004,11 +1124,11 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
       </div>
 
       {/* Action bar */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <p className="text-sm text-muted-foreground">
           {Object.keys(latestByCode).length} biomarkers across {sortedCategories.length} categories
         </p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             onClick={() => {
@@ -1054,16 +1174,16 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
                     {markers.length} markers
                   </Badge>
                   {total > 0 && (
-                    <span className={`text-xs ${inRange === total ? "text-green-500" : inRange >= total * 0.5 ? "text-yellow-500" : "text-red-500"}`}>
+                    <span className={`text-xs ${inRange === total ? "text-success" : inRange >= total * 0.5 ? "text-warning" : "text-destructive"}`}>
                       {inRange}/{total} in range
                     </span>
                   )}
                 </div>
               </AccordionTrigger>
               <AccordionContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-outline-variant/10 border border-outline-variant/10">
                   {markers.map((m) => (
-                    <BiomarkerSparkCard
+                    <EtherealBiomarkerCard
                       key={m.code}
                       code={m.code}
                       name={m.name}
@@ -1116,7 +1236,7 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
               </SelectContent>
             </Select>
           </div>
-          <div className="bg-card rounded-xl border border-border/50">
+          <div className="glass-card rounded-xl">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1156,7 +1276,7 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" className="text-red-600 h-7 text-xs" onClick={() => setDeleteTarget(b)}>Delete</Button>
+                          <Button variant="outline" size="sm" className="text-destructive h-7 text-xs" onClick={() => setDeleteTarget(b)}>Delete</Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -1168,9 +1288,9 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
       </Collapsible>
 
       {/* Add Results Dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Add Biomarker Results</DialogTitle></DialogHeader>
+      <ResponsiveDialog open={addOpen} onOpenChange={setAddOpen}>
+        <ResponsiveDialogContent className="max-w-2xl">
+          <ResponsiveDialogHeader><ResponsiveDialogTitle>Add Biomarker Results</ResponsiveDialogTitle></ResponsiveDialogHeader>
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             <div><Label>Date Measured</Label><Input type="date" value={measuredAt} onChange={(e) => setMeasuredAt(e.target.value)} /></div>
             {BIOMARKER_CATEGORIES.map((cat: string) => {
@@ -1193,12 +1313,12 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
               );
             })}
           </div>
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button onClick={handleBatchSave} disabled={saving}>{saving ? "Saving..." : "Save All"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -1211,7 +1331,7 @@ function BiomarkersTab({ userId, patientId, biomarkers, treatments, patient }: {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1383,29 +1503,29 @@ function ItineraryTab({ userId, patientId, itineraries, treatments }: {
 
         {/* Timeline */}
         {sortedDates.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground bg-card rounded-xl shadow-sm border border-border/50">
+          <div className="text-center py-12 text-muted-foreground glass-card rounded-xl">
             <p>No items yet. Add items to build the itinerary.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {sortedDates.map((date) => (
-              <div key={date} className="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+              <div key={date} className="glass-card rounded-xl p-4">
                 <h3 className="font-semibold text-sm text-muted-foreground mb-3">
                   {new Date(date).toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
                 </h3>
                 <div className="space-y-2">
                   {itemsByDate[date].map((item: any) => (
-                    <div key={item._id} className="flex items-center gap-3 p-3 bg-secondary text-foreground rounded-lg">
-                      <span className="text-xl">{itemTypeIcons[item.type] || "\uD83D\uDCCC"}</span>
+                    <div key={item._id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-secondary text-foreground rounded-lg">
+                      {ITEM_TYPE_ICONS[item.type] || <Plane className="h-5 w-5 text-muted-foreground" />}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="font-medium text-sm">{item.title}</p>
                           <Badge variant="outline" className="text-xs">{item.type}</Badge>
                           <Badge className={`text-xs ${
-                            item.status === "confirmed" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                            item.status === "completed" ? "bg-green-500/10 text-green-400 border border-green-500/20" :
-                            item.status === "cancelled" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
-                            "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
+                            item.status === "confirmed" ? "bg-info/10 text-info border border-info/20" :
+                            item.status === "completed" ? "bg-success/10 text-success border border-success/20" :
+                            item.status === "cancelled" ? "bg-destructive/10 text-destructive border border-destructive/20" :
+                            "bg-muted text-muted-foreground border border-border"
                           }`}>{item.status}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -1422,7 +1542,7 @@ function ItineraryTab({ userId, patientId, itineraries, treatments }: {
                         {item.status === "confirmed" && (
                           <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => handleItemStatusChange(item._id, "completed")}>Done</Button>
                         )}
-                        <Button variant="outline" size="sm" className="text-xs h-7 text-red-600" onClick={() => handleDeleteItem(item._id)}>X</Button>
+                        <Button variant="outline" size="sm" className="text-xs h-7 text-destructive" onClick={() => handleDeleteItem(item._id)}>X</Button>
                       </div>
                     </div>
                   ))}
@@ -1433,17 +1553,17 @@ function ItineraryTab({ userId, patientId, itineraries, treatments }: {
         )}
 
         {/* Add Item Dialog */}
-        <Dialog open={addItemOpen} onOpenChange={setAddItemOpen}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add Itinerary Item</DialogTitle></DialogHeader>
+        <ResponsiveDialog open={addItemOpen} onOpenChange={setAddItemOpen}>
+          <ResponsiveDialogContent>
+            <ResponsiveDialogHeader><ResponsiveDialogTitle>Add Itinerary Item</ResponsiveDialogTitle></ResponsiveDialogHeader>
             <div className="space-y-4 py-4">
               <div>
                 <Label>Type</Label>
                 <Select value={itemType} onValueChange={setItemType}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(itemTypeIcons).map(([type, icon]) => (
-                      <SelectItem key={type} value={type}>{icon} {type.charAt(0).toUpperCase() + type.slice(1)}</SelectItem>
+                    {Object.entries(ITEM_TYPE_ICONS).map(([type, icon]) => (
+                      <SelectItem key={type} value={type}><span className="inline-flex items-center gap-2">{icon} {type.charAt(0).toUpperCase() + type.slice(1)}</span></SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1470,12 +1590,12 @@ function ItineraryTab({ userId, patientId, itineraries, treatments }: {
                 </div>
               )}
             </div>
-            <DialogFooter>
+            <ResponsiveDialogFooter>
               <Button variant="outline" onClick={() => setAddItemOpen(false)}>Cancel</Button>
               <Button onClick={handleAddItem} disabled={saving || !itemTitle || !itemDate}>{saving ? "Adding..." : "Add"}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </ResponsiveDialogFooter>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
     );
   }
@@ -1489,7 +1609,7 @@ function ItineraryTab({ userId, patientId, itineraries, treatments }: {
       </div>
 
       {!itineraries || itineraries.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground bg-card rounded-xl shadow-sm border border-border/50">
+        <div className="text-center py-12 text-muted-foreground glass-card rounded-xl">
           <p className="text-lg mb-2">No itineraries yet.</p>
           <p className="text-sm">Create a travel plan for this patient</p>
         </div>
@@ -1498,7 +1618,7 @@ function ItineraryTab({ userId, patientId, itineraries, treatments }: {
           {itineraries.map((itin: any) => (
             <div
               key={itin._id}
-              className="bg-card rounded-xl shadow-sm border border-border/50 p-4 cursor-pointer hover:shadow-md transition"
+              className="glass-card rounded-xl p-4 cursor-pointer hover:shadow-md transition"
               onClick={() => setSelectedItinerary(itin._id)}
             >
               <div className="flex items-start justify-between mb-2">
@@ -1515,9 +1635,9 @@ function ItineraryTab({ userId, patientId, itineraries, treatments }: {
       )}
 
       {/* Create Itinerary Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>New Itinerary</DialogTitle></DialogHeader>
+      <ResponsiveDialog open={createOpen} onOpenChange={setCreateOpen}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader><ResponsiveDialogTitle>New Itinerary</ResponsiveDialogTitle></ResponsiveDialogHeader>
           <div className="space-y-4 py-4">
             <div><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Prometheus Protocol - April 2026" /></div>
             <div className="grid grid-cols-2 gap-4">
@@ -1526,14 +1646,14 @@ function ItineraryTab({ userId, patientId, itineraries, treatments }: {
             </div>
             <div><Label>Notes</Label><Textarea value={itinNotes} onChange={(e) => setItinNotes(e.target.value)} rows={3} /></div>
           </div>
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
             <Button onClick={handleCreateItinerary} disabled={saving || !title || !startDate || !endDate}>
               {saving ? "Creating..." : "Create"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }
@@ -1541,9 +1661,10 @@ function ItineraryTab({ userId, patientId, itineraries, treatments }: {
 // ─── Tab 6: Emails ──────────────────────────────────────────────────
 
 function EmailsTab({ patient, emailLogs }: { patient: any; emailLogs: any }) {
+  const isMobile = useIsMobile();
   if (emailLogs === undefined) {
     return (
-      <div className="bg-card rounded-xl shadow-sm border border-border/50 p-6 space-y-3">
+      <div className="glass-card rounded-xl p-6 space-y-3">
         <Skeleton className="h-4 w-48" />
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-12 w-full" />
@@ -1552,15 +1673,15 @@ function EmailsTab({ patient, emailLogs }: { patient: any; emailLogs: any }) {
   }
 
   const statusColors: Record<string, string> = {
-    sent: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-    delivered: "bg-green-500/10 text-green-400 border border-green-500/20",
-    received: "bg-green-500/10 text-green-400 border border-green-500/20",
-    bounced: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
-    failed: "bg-red-500/10 text-red-400 border border-red-500/20",
+    sent: "bg-info/10 text-info border border-info/20",
+    delivered: "bg-success/10 text-success border border-success/20",
+    received: "bg-success/10 text-success border border-success/20",
+    bounced: "bg-warning/10 text-warning border border-warning/20",
+    failed: "bg-destructive/10 text-destructive border border-destructive/20",
   };
 
   return (
-    <div className="bg-card rounded-xl shadow-sm border border-border/50 p-6">
+    <div className="glass-card rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">E-Mail Verlauf</h2>
         {patient.agentmailAddress && (
@@ -1574,6 +1695,32 @@ function EmailsTab({ patient, emailLogs }: { patient: any; emailLogs: any }) {
         <div className="text-center py-12 text-muted-foreground">
           <p className="text-4xl mb-2 opacity-50">&#x2709;</p>
           <p>Noch keine E-Mails</p>
+        </div>
+      ) : isMobile ? (
+        <div className="space-y-4">
+          {emailLogs.map((log: any) => (
+            <div key={log._id} className="glass-card rounded-xl p-4">
+              <div className="flex justify-between items-start mb-2 gap-2">
+                <h3 className="font-medium text-foreground">{log.subject}</h3>
+                <Badge variant="outline" className={`text-xs ${statusColors[log.status] ?? "bg-secondary"}`}>
+                  {log.status}
+                </Badge>
+              </div>
+              <div className="text-sm text-muted-foreground mb-3 space-y-1">
+                <p>
+                  <span className="font-medium">{log.direction === "inbound" ? "From:" : "To:"}</span>{" "}
+                  {log.direction === "inbound" ? log.from : log.to}
+                </p>
+                <p>{formatDate(log.createdAt)}</p>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  {log.direction === "inbound" ? "⬇️ Inbound" : "⬆️ Outbound"}
+                </span>
+                {log.hasAttachments && <span>📎 Attachment</span>}
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <Table>
@@ -1591,7 +1738,7 @@ function EmailsTab({ patient, emailLogs }: { patient: any; emailLogs: any }) {
             {emailLogs.map((log: any) => (
               <TableRow key={log._id}>
                 <TableCell className="text-center text-lg">
-                  {log.direction === "inbound" ? "\u2B07\uFE0F" : "\u2B06\uFE0F"}
+                  {log.direction === "inbound" ? "⬇️" : "⬆️"}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                   {formatDate(log.createdAt)}
@@ -1608,7 +1755,7 @@ function EmailsTab({ patient, emailLogs }: { patient: any; emailLogs: any }) {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  {log.hasAttachments && "\uD83D\uDCCE"}
+                  {log.hasAttachments && "📎"}
                 </TableCell>
               </TableRow>
             ))}
