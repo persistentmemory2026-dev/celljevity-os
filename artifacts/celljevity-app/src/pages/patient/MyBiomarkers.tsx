@@ -5,7 +5,9 @@ import { BIOMARKER_DEFINITIONS, BIOMARKER_CATEGORIES } from "@convex/biomarkerDe
 import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { ChartContainer } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceArea } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceArea, ReferenceLine } from "recharts";
+import { computeBaselineDelta } from "@/lib/biomarkers";
+import { useState } from "react";
 
 interface MyBiomarkersProps {
   userId: string;
@@ -13,6 +15,17 @@ interface MyBiomarkersProps {
 }
 
 export function MyBiomarkers({ userId, linkedPatientId }: MyBiomarkersProps) {
+  const [baselineCodes, setBaselineCodes] = useState<Set<string>>(new Set());
+
+  const toggleBaseline = (code: string) => {
+    setBaselineCodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  };
+
   const biomarkers = useQuery(api.biomarkers.listByPatient, {
     callerId: userId as Id<"users">,
     patientId: linkedPatientId as Id<"patients">,
@@ -128,25 +141,68 @@ export function MyBiomarkers({ userId, linkedPatientId }: MyBiomarkersProps) {
                       </div>
 
                       {/* Mini trend chart */}
-                      {chartData.length > 1 && (
-                        <div className="h-24 mt-2">
-                          <ChartContainer config={{ value: { color: inRange ? "var(--chart-up)" : "var(--destructive)" } }} className="h-full w-full">
-                            <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                              <XAxis dataKey="date" tick={false} axisLine={false} />
-                              <YAxis domain={["auto", "auto"]} hide />
-                              <ReferenceArea y1={low} y2={high} fill="var(--chart-up)" fillOpacity={0.08} />
-                              <Line
-                                type="monotone"
-                                dataKey="value"
-                                stroke={inRange ? "var(--chart-up)" : "var(--destructive)"}
-                                strokeWidth={2}
-                                dot={{ r: 3 }}
-                              />
-                            </LineChart>
-                          </ChartContainer>
-                        </div>
-                      )}
+                      {chartData.length > 1 && (() => {
+                        const showBaseline = baselineCodes.has(code);
+                        const baselineValue = chartData[0].value;
+                        const currentValue = chartData[chartData.length - 1].value;
+                        const delta = computeBaselineDelta(baselineValue, currentValue);
+
+                        return (
+                          <>
+                            <div className="flex items-center justify-between mt-2 mb-1">
+                              <button
+                                onClick={() => toggleBaseline(code)}
+                                className={`text-sm font-medium px-2 py-0.5 rounded transition-colors ${
+                                  showBaseline
+                                    ? "bg-[#A81B4E]/10 text-[#A81B4E]"
+                                    : "text-[#9B9590] hover:text-[#6B6560]"
+                                }`}
+                                style={{ fontFamily: "DM Sans", fontWeight: 500, fontSize: "14px" }}
+                              >
+                                vs Baseline
+                              </button>
+                              {showBaseline && delta !== null && (
+                                <span
+                                  style={{ fontFamily: "Geist Mono" }}
+                                  className={`text-xs ${delta > 0 ? "text-[#2D7D46]" : delta < 0 ? "text-[#A81B4E]" : "text-[#9B9590]"}`}
+                                >
+                                  {delta > 0 ? "+" : ""}{delta}%
+                                </span>
+                              )}
+                            </div>
+                            <div className="h-24">
+                              <ChartContainer config={{ value: { color: inRange ? "var(--chart-up)" : "var(--destructive)" } }} className="h-full w-full">
+                                <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                                  <XAxis dataKey="date" tick={false} axisLine={false} />
+                                  <YAxis domain={["auto", "auto"]} hide />
+                                  <ReferenceArea y1={low} y2={high} fill="var(--chart-up)" fillOpacity={0.08} />
+                                  {showBaseline && (
+                                    <ReferenceLine
+                                      y={baselineValue}
+                                      stroke="#9B9590"
+                                      strokeDasharray="6 3"
+                                      strokeWidth={1.5}
+                                    />
+                                  )}
+                                  <Line
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke={inRange ? "var(--chart-up)" : "var(--destructive)"}
+                                    strokeWidth={2}
+                                    dot={{ r: 3 }}
+                                  />
+                                </LineChart>
+                              </ChartContainer>
+                            </div>
+                            {showBaseline && (
+                              <p className="text-xs text-[#9B9590] mt-1" style={{ fontFamily: "Geist Mono" }}>
+                                Baseline: {baselineValue} → Current: {currentValue} ({delta !== null ? `${delta > 0 ? "+" : ""}${delta}%` : "N/A"})
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   );
                 })}

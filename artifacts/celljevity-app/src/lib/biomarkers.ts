@@ -7,6 +7,16 @@ export function computeHealthScore(
   return Math.round((inRange.length / withRanges.length) * 100);
 }
 
+export function computeBaselineDelta(
+  firstValue: number,
+  currentValue: number,
+): number | null {
+  if (firstValue === 0) return null;
+  const delta = ((currentValue - firstValue) / firstValue) * 100;
+  if (isNaN(delta) || !isFinite(delta)) return null;
+  return Math.round(delta);
+}
+
 export function getValueStatus(
   value: number,
   refRangeLow?: number,
