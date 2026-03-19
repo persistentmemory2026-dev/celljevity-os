@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Sync Convex codegen types: removed stale module references from app-level generated types, added dashboard module to root codegen, and updated dataModel to schema-less mode for app-level Convex directory (b2ebdc6)
+
 ### Added
+- TODOS.md with prioritized backlog (biomarker alerts, GDPR email unsubscribe, observability, email queue upgrade, action item pagination)
 - Patient detail panel and enhanced intake consent options (e55cb90)
 - Patient dashboard and quote builder functionality (de8b1d8)
 - Complete i18n externalization across all remaining frontend pages (54d8205)
