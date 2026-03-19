@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { Id } from "@convex/_generated/dataModel";
+import { Id, Doc } from "@convex/_generated/dataModel";
 import { formatCurrency } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -232,7 +232,7 @@ export function AdminServices({ userId }: AdminServicesProps) {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-display font-bold text-foreground">Service Management</h1>
         <Button 
-          className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]" 
+          className="bg-primary text-primary-foreground hover:brightness-110 shadow-sm" 
           onClick={() => setCreateOpen(true)}
         >
           + Add Service
@@ -258,7 +258,7 @@ export function AdminServices({ userId }: AdminServicesProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              services.map((svc) => (
+              services.map((svc: Doc<"services">) => (
                 <TableRow key={svc._id} className={`${!svc.active ? "opacity-60" : ""} hover:bg-secondary/40 transition-colors border-border/50`}>
                   <TableCell>
                     <div>

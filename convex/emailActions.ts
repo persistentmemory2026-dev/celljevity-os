@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { createInbox, sendEmail, getAttachment, registerWebhook } from "./agentmail";
-import { welcomeEmail, quoteEmail } from "./emailTemplates";
+import { welcomeEmail, quoteEmail, inviteEmail } from "./emailTemplates";
 import { Id } from "./_generated/dataModel";
 
 // ─── Flow 1: Patient Welcome + Inbox Creation ──────────────────────
@@ -259,6 +259,85 @@ export const sendQuoteEmail = internalAction({
         quoteId: args.quoteId,
         from: fromAddress,
         to: quote.customerEmail,
+        subject: template.subject,
+        hasAttachments: false,
+        status: "failed",
+        error: error?.message ?? String(error),
+        createdAt: Date.now(),
+      });
+    }
+  },
+});
+
+// ─── Flow 4: Send Invite Email ───────────────────────────────────────
+
+export const sendInviteEmail = internalAction({
+  args: {
+    patientId: v.id("patients"),
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const patient = await ctx.runQuery(internal.patients.getInternal, {
+      patientId: args.patientId,
+    });
+    if (!patient || !patient.email) return;
+
+    const siteUrl = process.env.SITE_URL ?? "http://localhost:5173";
+    const inviteUrl = `${siteUrl}?invite=${args.token}`;
+
+    const template = inviteEmail(
+      { firstName: patient.firstName, lastName: patient.lastName },
+      inviteUrl,
+      patient.language ?? "en",
+    );
+
+    // Find patient's inbox; fall back to system inbox
+    let inboxId = patient.agentmailInboxId;
+    let fromAddress = patient.agentmailAddress ?? "celljevity-system@agentmail.to";
+
+    if (!inboxId) {
+      try {
+        const systemInbox = await createInbox("celljevity-invites", "Celljevity Invites");
+        inboxId = systemInbox.inboxId;
+        fromAddress = "celljevity-invites@agentmail.to";
+      } catch {
+        // Inbox may already exist — use the fallback name
+        inboxId = "celljevity-invites";
+        fromAddress = "celljevity-invites@agentmail.to";
+      }
+    }
+
+    try {
+      const result = await sendEmail(inboxId, {
+        to: [patient.email],
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      await ctx.runMutation(api.emailLog.insert, {
+        direction: "outbound",
+        agentmailMessageId: result.messageId ?? "",
+        agentmailThreadId: result.threadId,
+        inboxId,
+        patientId: args.patientId,
+        from: fromAddress,
+        to: patient.email,
+        subject: template.subject,
+        bodyPreview: template.text.slice(0, 200),
+        hasAttachments: false,
+        status: "sent",
+        createdAt: Date.now(),
+      });
+    } catch (error: any) {
+      console.error("Failed to send invite email:", error);
+      await ctx.runMutation(api.emailLog.insert, {
+        direction: "outbound",
+        agentmailMessageId: "",
+        inboxId: inboxId ?? "",
+        patientId: args.patientId,
+        from: fromAddress,
+        to: patient.email,
         subject: template.subject,
         hasAttachments: false,
         status: "failed",

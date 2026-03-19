@@ -4,7 +4,7 @@ import { api } from "@convex/_generated/api";
 import { formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQuotePDF } from "@/lib/pdf";
-import type { Id } from "@convex/_generated/dataModel";
+import type { Id, Doc } from "@convex/_generated/dataModel";
 import type { PageId, NavigationContext } from "../App";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -170,34 +170,64 @@ export function NewQuote({ userId, onNavigate, onDirtyChange, navContext }: NewQ
 
   const { subtotal, taxAmount, total } = calculateTotals();
 
+  const steps = [
+    { num: 1, label: "Customer" },
+    { num: 2, label: "Services" },
+    { num: 3, label: "Review" },
+  ];
+
   return (
-    <div className="p-4 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 max-w-4xl mx-auto space-y-6 pb-24 md:pb-6">
       <h1 className="text-3xl font-display font-bold text-foreground">
         New {type === "quote" ? "Quote" : "Invoice"}
       </h1>
 
+      {/* Step Indicators */}
+      <div className="flex items-center gap-1 sm:gap-3">
+        {steps.map((s, i) => (
+          <div key={s.num} className="flex items-center gap-1 sm:gap-3">
+            <button
+              onClick={() => {
+                if (s.num === 1) setStep(1);
+                else if (s.num === 2 && customerName) setStep(2);
+                else if (s.num === 3 && items.length > 0) setStep(3);
+              }}
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition ${
+                step === s.num
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : step > s.num
+                    ? "bg-primary/20 text-primary"
+                    : "bg-secondary text-muted-foreground"
+              }`}
+            >
+              <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-current/20 flex items-center justify-center text-[10px] sm:text-xs font-bold">
+                {step > s.num ? "✓" : s.num}
+              </span>
+              <span className="hidden sm:inline">{s.label}</span>
+            </button>
+            {i < steps.length - 1 && (
+              <div className={`w-4 sm:w-8 h-0.5 rounded ${step > s.num ? "bg-primary" : "bg-border"}`} />
+            )}
+          </div>
+        ))}
+      </div>
+
       {/* Type Selection */}
       <div className="flex gap-4">
-        <button
+        <Button
+          variant={type === "quote" ? "default" : "secondary"}
           onClick={() => setType("quote")}
-          className={`px-4 py-2 rounded-lg font-medium transition ${
-            type === "quote"
-              ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
-              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-          }`}
+          className={type !== "quote" ? "text-muted-foreground" : ""}
         >
           Quote
-        </button>
-        <button
+        </Button>
+        <Button
+          variant={type === "invoice" ? "default" : "secondary"}
           onClick={() => setType("invoice")}
-          className={`px-4 py-2 rounded-lg font-medium transition ${
-            type === "invoice"
-              ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
-              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-          }`}
+          className={type !== "invoice" ? "text-muted-foreground" : ""}
         >
           Invoice
-        </button>
+        </Button>
       </div>
 
       {/* Step 1: Customer Info */}
@@ -266,9 +296,9 @@ export function NewQuote({ userId, onNavigate, onDirtyChange, navContext }: NewQ
           </div>
           <div className="mt-6 flex justify-end">
             <Button
+              variant="default"
               onClick={() => setStep(2)}
               disabled={!customerName}
-              className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
             >
               Next: Select Services
             </Button>
@@ -282,7 +312,7 @@ export function NewQuote({ userId, onNavigate, onDirtyChange, navContext }: NewQ
           <Card className="p-6">
             <h2 className="text-xl font-display font-semibold text-foreground mb-4">Select Services</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {services?.map((service) => (
+              {services?.map((service: Doc<"services">) => (
                 <div
                   key={service._id}
                   className="border border-border/50 bg-secondary/20 rounded-xl p-4 hover:border-primary/50 transition-colors"
@@ -316,7 +346,7 @@ export function NewQuote({ userId, onNavigate, onDirtyChange, navContext }: NewQ
                 {items.map((item) => (
                   <div
                     key={item.serviceId}
-                    className="flex items-center justify-between py-3 border-b border-border/50 last:border-0"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b border-border/50 last:border-0 gap-3"
                   >
                     <div>
                       <p className="font-medium text-foreground">{item.serviceName}</p>
@@ -324,13 +354,13 @@ export function NewQuote({ userId, onNavigate, onDirtyChange, navContext }: NewQ
                         {formatCurrency(item.unitPrice)} per unit
                       </p>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between sm:justify-end gap-4">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="icon"
                           onClick={() => updateQuantity(item.serviceId, item.quantity - 1)}
-                          className="w-8 h-8 rounded-lg border-border bg-transparent text-foreground hover:bg-secondary"
+                          className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg border-border bg-transparent text-foreground hover:bg-secondary"
                         >
                           -
                         </Button>
@@ -339,12 +369,12 @@ export function NewQuote({ userId, onNavigate, onDirtyChange, navContext }: NewQ
                           variant="outline"
                           size="icon"
                           onClick={() => updateQuantity(item.serviceId, item.quantity + 1)}
-                          className="w-8 h-8 rounded-lg border-border bg-transparent text-foreground hover:bg-secondary"
+                          className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg border-border bg-transparent text-foreground hover:bg-secondary"
                         >
                           +
                         </Button>
                       </div>
-                      <p className="font-medium text-foreground w-24 text-right">
+                      <p className="font-medium text-foreground w-auto sm:w-24 text-right text-lg sm:text-base">
                         {formatCurrency(item.unitPrice * item.quantity)}
                       </p>
                     </div>
@@ -370,18 +400,17 @@ export function NewQuote({ userId, onNavigate, onDirtyChange, navContext }: NewQ
             </Card>
           )}
 
-          <div className="flex justify-between">
+          <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:relative md:left-auto md:right-auto p-4 md:p-0 bg-background/80 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none border-t border-border md:border-0 flex justify-between z-20">
             <Button
               variant="outline"
               onClick={() => setStep(1)}
-              className="bg-transparent border-border text-foreground hover:bg-secondary"
             >
               Back
             </Button>
             <Button
+              variant="default"
               onClick={() => setStep(3)}
               disabled={items.length === 0}
-              className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
             >
               Next: Review
             </Button>
@@ -431,18 +460,17 @@ export function NewQuote({ userId, onNavigate, onDirtyChange, navContext }: NewQ
             </div>
           </Card>
 
-          <div className="flex justify-between">
+          <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:relative md:left-auto md:right-auto p-4 md:p-0 bg-background/80 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none border-t border-border md:border-0 flex justify-between z-20">
             <Button
               variant="outline"
               onClick={() => setStep(2)}
-              className="bg-transparent border-border text-foreground hover:bg-secondary"
             >
               Back
             </Button>
             <Button
+              variant="default"
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
             >
               {submitting ? "Creating..." : `Create ${type === "quote" ? "Quote" : "Invoice"} & Download`}
             </Button>

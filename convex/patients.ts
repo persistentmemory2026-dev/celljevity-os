@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireRole } from "./auth";
+import { requireRole, requirePatientSelfOrRole } from "./auth";
 
 export const list = query({
   args: {
@@ -33,7 +33,7 @@ export const get = query({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.callerId, ["admin", "coordinator", "provider"]);
+    await requirePatientSelfOrRole(ctx, args.callerId, args.patientId, ["admin", "coordinator", "provider"]);
     const patient = await ctx.db.get(args.patientId);
     if (!patient) throw new Error("Patient not found");
     return patient;
@@ -147,6 +147,21 @@ export const count = query({
       .withIndex("by_status", (q: any) => q.eq("status", "active"))
       .collect();
     return patients.length;
+  },
+});
+
+export const getMyProfile = query({
+  args: { callerId: v.id("users") },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const caller = await ctx.db.get(args.callerId);
+    if (!caller) throw new Error("Unauthorized: user not found");
+    if (caller.role !== "patient" || !caller.linkedPatientId) {
+      throw new Error("Forbidden: only patient users can access this");
+    }
+    const patient = await ctx.db.get(caller.linkedPatientId);
+    if (!patient) throw new Error("Linked patient record not found");
+    return patient;
   },
 });
 

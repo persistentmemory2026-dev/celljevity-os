@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { requireRole } from "./auth";
+import { requireRole, requirePatientSelfOrRole } from "./auth";
 
 export const insert = mutation({
   args: {
@@ -22,7 +22,12 @@ export const insert = mutation({
   },
   returns: v.id("emailLog"),
   handler: async (ctx, args) => {
-    return await ctx.db.insert("emailLog", args);
+    const id = await ctx.db.insert("emailLog", args);
+    // Denormalize: update patient's lastContactedAt
+    if (args.patientId) {
+      await ctx.db.patch(args.patientId, { lastContactedAt: Date.now() });
+    }
+    return id;
   },
 });
 
@@ -33,7 +38,7 @@ export const listByPatient = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.callerId, ["admin", "coordinator", "provider"]);
+    await requirePatientSelfOrRole(ctx, args.callerId, args.patientId, ["admin", "coordinator", "provider"]);
     const logs = await ctx.db
       .query("emailLog")
       .withIndex("by_patient", (q) => q.eq("patientId", args.patientId))

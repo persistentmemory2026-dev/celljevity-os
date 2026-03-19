@@ -29,7 +29,15 @@ const PAGE_LABELS: Record<PageId, string> = {
   documents: "Documents",
   "admin-users": "Users",
   "admin-services": "Services",
+  "my-dashboard": "Home",
+  "my-treatments": "Treatments",
+  "my-biomarkers": "Biomarkers",
+  "my-documents": "Documents",
+  "my-itinerary": "Itinerary",
+  "my-profile": "Profile",
 };
+
+const PATIENT_HOME_PAGES: PageId[] = ["my-dashboard", "my-treatments", "my-biomarkers", "my-documents", "my-itinerary", "my-profile"];
 
 export function PageBreadcrumb({ currentPage, navContext, onNavigate, userId }: PageBreadcrumbProps) {
   const patient = useQuery(
@@ -39,31 +47,37 @@ export function PageBreadcrumb({ currentPage, navContext, onNavigate, userId }: 
       : "skip"
   );
 
-  if (currentPage === "dashboard") return null;
+  if (currentPage === "dashboard" || currentPage === "my-dashboard") return null;
 
-  const crumbs: Array<{ label: string; page?: PageId; ctx?: NavigationContext }> = [
-    { label: "Home", page: "dashboard" },
-  ];
+  const crumbs: Array<{ label: string; page?: PageId; ctx?: NavigationContext }> = [];
 
-  switch (currentPage) {
-    case "patient-detail":
-      crumbs.push({ label: "Patients", page: "patients" });
-      crumbs.push({
-        label: patient ? `${patient.firstName} ${patient.lastName}` : "...",
-      });
-      break;
-    case "new-quote":
-      crumbs.push({ label: "Quotes", page: "quotes" });
-      crumbs.push({ label: "New Quote" });
-      break;
-    case "admin-users":
-    case "admin-services":
-      crumbs.push({ label: "Admin" });
-      crumbs.push({ label: PAGE_LABELS[currentPage] });
-      break;
-    default:
-      crumbs.push({ label: PAGE_LABELS[currentPage] });
-      break;
+  // Patient pages use "Home" as root
+  if (PATIENT_HOME_PAGES.includes(currentPage)) {
+    crumbs.push({ label: "Home", page: "my-dashboard" });
+    crumbs.push({ label: PAGE_LABELS[currentPage] });
+  } else {
+    crumbs.push({ label: "Home", page: "dashboard" });
+
+    switch (currentPage) {
+      case "patient-detail":
+        crumbs.push({ label: "Patients", page: "patients" });
+        crumbs.push({
+          label: patient ? `${patient.firstName} ${patient.lastName}` : "...",
+        });
+        break;
+      case "new-quote":
+        crumbs.push({ label: "Quotes", page: "quotes" });
+        crumbs.push({ label: "New Quote" });
+        break;
+      case "admin-users":
+      case "admin-services":
+        crumbs.push({ label: "Admin" });
+        crumbs.push({ label: PAGE_LABELS[currentPage] });
+        break;
+      default:
+        crumbs.push({ label: PAGE_LABELS[currentPage] });
+        break;
+    }
   }
 
   return (

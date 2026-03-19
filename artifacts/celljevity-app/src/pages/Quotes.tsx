@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateQuotePDF } from "@/lib/pdf";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
@@ -15,12 +16,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ResponsiveDialog";
+import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { FileText } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { Id } from "@convex/_generated/dataModel";
+import type { Id, Doc } from "@convex/_generated/dataModel";
 import type { PageId, NavigationContext } from "../App";
 
 interface QuotesProps {
@@ -51,6 +55,7 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   // Auto-open quote from navContext
   useEffect(() => {
@@ -79,7 +84,7 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
       case "draft":
         return "bg-secondary text-foreground";
       case "sent":
-        return "bg-chart-3/10 text-[hsl(var(--chart-3))]";
+        return "bg-chart-3/10 text-chart-3";
       case "accepted":
         return "bg-primary/10 text-primary";
       case "paid":
@@ -183,12 +188,12 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
     <div className="p-4 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-display font-bold text-foreground">Quotes & Invoices</h1>
-        <button
+        <Button
+          variant="default"
           onClick={() => onNavigate("new-quote")}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
         >
           + New Quote
-        </button>
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -197,9 +202,9 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === tab
-                ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "bg-card text-foreground border border-border hover:bg-secondary"
             }`}
           >
@@ -235,7 +240,7 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
         </Card>
       ) : (() => {
         const filteredQuotes = search
-          ? quotes.filter((q) => {
+          ? quotes.filter((q: Doc<"quotes">) => {
               const s = search.toLowerCase();
               return (
                 q.quoteNumber?.toLowerCase().includes(s) ||
@@ -245,19 +250,64 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
             })
           : quotes;
         return (
-        /* Quotes Table */
+        /* Quotes Table / Cards */
+        isMobile ? (
+          <div className="space-y-4">
+            {filteredQuotes.length === 0 ? (
+              <Card className="flex flex-col items-center justify-center p-8 text-center">
+                <div className="mb-4 opacity-50 text-muted-foreground"><FileText className="w-12 h-12" /></div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No quotes or invoices yet</h3>
+                <p className="text-muted-foreground mb-6 max-w-sm">Create your first quote to get started with billing and invoicing.</p>
+                <Button
+                  variant="default"
+                  onClick={() => onNavigate("new-quote")}
+                  className="min-h-[44px]"
+                >
+                  New Quote
+                </Button>
+              </Card>
+            ) : (
+              filteredQuotes.map((quote: Doc<"quotes">) => (
+                <Card key={quote._id} className="overflow-hidden" onClick={() => setSelectedQuoteId(quote._id)}>
+                  <CardContent className="p-4 relative">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full mb-1 ${quote.type === "invoice" ? "bg-chart-1/10 text-chart-1" : "bg-chart-3/10 text-chart-3"}`}>
+                          {quote.type === "invoice" ? "Invoice" : "Quote"} {quote.quoteNumber}
+                        </span>
+                        <p className="font-medium text-lg text-foreground">{quote.customerName}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-end mt-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">{quote.createdAt && formatDate(quote.createdAt)}</p>
+                        <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(quote.status)}`}>
+                          {capitalize(quote.status)}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-display font-bold text-foreground text-lg">{formatCurrency(quote.total ?? 0)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        ) : (
         <Card className="overflow-hidden">
           {filteredQuotes.length === 0 ? (
             <CardContent className="flex flex-col items-center justify-center p-16 text-center">
-              <div className="text-5xl mb-4 opacity-50 grayscale">📄</div>
+              <div className="mb-4 opacity-50 text-muted-foreground"><FileText className="w-12 h-12" /></div>
               <h3 className="text-lg font-semibold text-foreground mb-2">No quotes or invoices yet</h3>
               <p className="text-muted-foreground mb-6 max-w-sm">Create your first quote to get started with billing and invoicing.</p>
-              <button
+              <Button
+                variant="default"
                 onClick={() => onNavigate("new-quote")}
-                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition shadow-[0_0_15px_-3px_rgba(120,224,173,0.4)]"
               >
                 New Quote
-              </button>
+              </Button>
             </CardContent>
           ) : (
             <div className="overflow-x-auto">
@@ -274,7 +324,7 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredQuotes.map((quote) => (
+                  {filteredQuotes.map((quote: Doc<"quotes">) => (
                     <tr
                       key={quote._id}
                       className="hover:bg-secondary/40 transition-colors cursor-pointer"
@@ -284,7 +334,7 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
                         <span className="font-medium text-foreground">{quote.quoteNumber}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${quote.type === "invoice" ? "bg-chart-1/10 text-[hsl(var(--chart-1))]" : "bg-chart-3/10 text-[hsl(var(--chart-3))]"}`}>
+                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${quote.type === "invoice" ? "bg-chart-1/10 text-chart-1" : "bg-chart-3/10 text-chart-3"}`}>
                           {quote.type === "invoice" ? "Invoice" : "Quote"}
                         </span>
                       </td>
@@ -334,20 +384,21 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
             </div>
           )}
         </Card>
+        )
         );
       })()}
 
       {/* Quote Detail Dialog */}
-      <Dialog open={selectedQuoteId !== null} onOpenChange={(open) => { if (!open) setSelectedQuoteId(null); }}>
-        <DialogContent className="max-w-2xl bg-card border-border text-foreground sm:rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-display">
+      <ResponsiveDialog open={selectedQuoteId !== null} onOpenChange={(open) => { if (!open) setSelectedQuoteId(null); }}>
+        <ResponsiveDialogContent className="max-w-2xl bg-card border-border text-foreground sm:rounded-2xl max-h-[85vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle className="font-display">
               {selectedQuote ? `${selectedQuote.type === "invoice" ? "Invoice" : "Quote"} ${selectedQuote.quoteNumber}` : "Loading..."}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
+            </ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="text-muted-foreground">
               {selectedQuote?.createdAt != null ? `Created ${formatDate(selectedQuote.createdAt)}` : ""}
-            </DialogDescription>
-          </DialogHeader>
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
 
           {selectedQuote ? (
             <div className="space-y-4">
@@ -426,18 +477,20 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
 
               {/* Actions */}
               <div className="flex gap-3 pt-2">
-                <button
+                <Button
+                  variant="default"
+                  className="flex-1"
                   onClick={() => downloadPDF(selectedQuote)}
-                  className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 text-sm font-medium transition"
                 >
                   Download PDF
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground"
                   onClick={() => setDeleteTarget(selectedQuote._id)}
-                  className="px-4 py-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 text-sm font-medium transition"
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -447,8 +500,8 @@ export function Quotes({ userId, onNavigate, navContext }: QuotesProps) {
               <Skeleton className="h-16 w-full rounded-lg bg-muted" />
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {/* Email Send Confirmation */}
       <AlertDialog open={sendConfirm !== null} onOpenChange={(open) => { if (!open) setSendConfirm(null); }}>

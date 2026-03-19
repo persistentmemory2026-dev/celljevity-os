@@ -22,7 +22,7 @@ class RootErrorBoundary extends React.Component<
       return (
         <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f9fafb", fontFamily: "system-ui, sans-serif" }}>
           <div style={{ maxWidth: "28rem", width: "100%", backgroundColor: "#fff", borderRadius: "0.5rem", boxShadow: "0 4px 6px rgba(0,0,0,0.1)", padding: "2rem", textAlign: "center" }}>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#111827", marginBottom: "0.5rem" }}>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#1A1816", marginBottom: "0.5rem" }}>
               Something went wrong
             </h2>
             <p style={{ color: "#6b7280", marginBottom: "0.75rem" }}>
@@ -35,7 +35,7 @@ class RootErrorBoundary extends React.Component<
             )}
             <button
               onClick={() => window.location.reload()}
-              style={{ padding: "0.5rem 1.5rem", backgroundColor: "#2563eb", color: "#fff", border: "none", borderRadius: "0.5rem", cursor: "pointer", fontSize: "0.875rem" }}
+              style={{ padding: "0.5rem 1.5rem", backgroundColor: "#8C243B", color: "#fff", border: "none", borderRadius: "0.5rem", cursor: "pointer", fontSize: "0.875rem" }}
             >
               Reload
             </button>

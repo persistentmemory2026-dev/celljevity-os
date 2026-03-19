@@ -40,7 +40,7 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,224,173,0.15),rgba(255,255,255,0))]">
+    <div className="min-h-screen flex items-center justify-center bg-background bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(140,36,59,0.1),rgba(255,255,255,0))]">
       <Card className="p-8 w-full max-w-md shadow-2xl border-border/50 bg-card/80 backdrop-blur-xl">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-display font-bold text-foreground mb-2">Celljevity</h1>
@@ -76,7 +76,7 @@ export function Login({ onLogin }: LoginProps) {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full py-6 text-lg bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_20px_-5px_rgba(120,224,173,0.5)] transition-all"
+            className="w-full py-6 text-lg bg-primary text-primary-foreground hover:brightness-110 shadow-lg transition-all"
           >
             {loading ? "Signing in..." : "Sign In"}
           </Button>

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
 import bcrypt from "bcryptjs";
+import { requireRole } from "./auth";
 
 const SALT_ROUNDS = 10;
 
@@ -174,5 +175,58 @@ export const deleteUser = mutation({
 
     await ctx.db.delete(args.userId);
     return null;
+  },
+});
+
+export const createPatientLogin = mutation({
+  args: {
+    callerId: v.id("users"),
+    patientId: v.id("patients"),
+    password: v.string(),
+  },
+  returns: v.id("users"),
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.callerId, ["admin", "coordinator"]);
+
+    const patient = await ctx.db.get(args.patientId);
+    if (!patient) throw new Error("Patient not found");
+    if (!patient.email) throw new Error("Patient has no email address — cannot create login");
+
+    // Check no existing user with that email
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q: any) => q.eq("email", patient.email))
+      .unique();
+    if (existing) throw new Error("A user login already exists for this email");
+
+    const passwordHash = bcrypt.hashSync(args.password, SALT_ROUNDS);
+    return await ctx.db.insert("users", {
+      email: patient.email,
+      passwordHash,
+      name: `${patient.firstName} ${patient.lastName}`,
+      role: "patient",
+      linkedPatientId: args.patientId,
+    });
+  },
+});
+
+export const getPatientLoginStatus = query({
+  args: {
+    callerId: v.id("users"),
+    patientId: v.id("patients"),
+  },
+  returns: v.object({ hasLogin: v.boolean(), email: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.callerId, ["admin", "coordinator", "provider"]);
+
+    const loginUser = await ctx.db
+      .query("users")
+      .withIndex("by_linkedPatientId", (q: any) => q.eq("linkedPatientId", args.patientId))
+      .unique();
+
+    return {
+      hasLogin: !!loginUser,
+      email: loginUser?.email ?? null,
+    };
   },
 });

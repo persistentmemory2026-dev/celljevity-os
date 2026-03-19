@@ -6,10 +6,12 @@ export default defineSchema({
     email: v.string(),
     passwordHash: v.string(),
     name: v.string(),
-    role: v.string(), // admin, coordinator, provider
+    role: v.string(), // admin, coordinator, provider, patient
+    linkedPatientId: v.optional(v.id("patients")),
   })
     .index("by_email", ["email"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    .index("by_linkedPatientId", ["linkedPatientId"]),
 
   services: defineTable({
     name: v.string(),
@@ -96,6 +98,7 @@ export default defineSchema({
     agentmailInboxId: v.optional(v.string()), // AgentMail inbox ID
     agentmailAddress: v.optional(v.string()), // e.g. patient-doe-j-abc123@agentmail.to
     status: v.string(), // active, inactive, archived
+    lastContactedAt: v.optional(v.number()),
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -103,7 +106,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_lastName", ["lastName"])
     .index("by_createdBy", ["createdBy"])
-    .index("by_agentmailInboxId", ["agentmailInboxId"]),
+    .index("by_agentmailInboxId", ["agentmailInboxId"])
+    .index("by_lastContactedAt", ["lastContactedAt"]),
 
   treatments: defineTable({
     patientId: v.id("patients"),
@@ -197,6 +201,17 @@ export default defineSchema({
     .index("by_quote", ["quoteId"])
     .index("by_status", ["status"])
     .index("by_direction", ["direction"]),
+
+  inviteTokens: defineTable({
+    token: v.string(),
+    patientId: v.id("patients"),
+    email: v.string(),
+    createdBy: v.id("users"),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_patientId", ["patientId"]),
 
   itineraryItems: defineTable({
     itineraryId: v.id("itineraries"),

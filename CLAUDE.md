@@ -70,6 +70,13 @@ Requires: Node.js 24, pnpm, PostgreSQL. Key env vars: `DATABASE_URL`, `PORT`, `S
 
 13 PostgreSQL tables with UUID PKs (Drizzle ORM). Also a parallel Convex schema in `convex/schema.ts` with 5 tables (users, services, quotes, quoteItems, documents).
 
+## Design System
+
+Always read DESIGN.md before making any visual or UI decisions.
+All font choices, colors, spacing, and aesthetic direction are defined there.
+Do not deviate without explicit user approval.
+In QA mode, flag any code that doesn't match DESIGN.md.
+
 ## Nia (External Documentation & Research)
 
 Use Nia MCP server for external documentation, GitHub repos, package source code, and research. Invoke when needing to index/search remote codebases, fetch library docs, explore packages, or do web research.

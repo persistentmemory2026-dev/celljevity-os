@@ -7,7 +7,13 @@ const SALT_ROUNDS = 10;
 export const login = mutation({
   args: { email: v.string(), password: v.string() },
   returns: v.union(
-    v.object({ userId: v.id("users"), email: v.string(), name: v.string(), role: v.string() }),
+    v.object({
+      userId: v.id("users"),
+      email: v.string(),
+      name: v.string(),
+      role: v.string(),
+      linkedPatientId: v.union(v.id("patients"), v.null()),
+    }),
     v.null()
   ),
   handler: async (ctx, args) => {
@@ -39,6 +45,7 @@ export const login = mutation({
       email: user.email,
       name: user.name,
       role: user.role,
+      linkedPatientId: user.linkedPatientId ?? null,
     };
   },
 });
@@ -46,7 +53,13 @@ export const login = mutation({
 export const getMe = query({
   args: { userId: v.id("users") },
   returns: v.union(
-    v.object({ userId: v.id("users"), email: v.string(), name: v.string(), role: v.string() }),
+    v.object({
+      userId: v.id("users"),
+      email: v.string(),
+      name: v.string(),
+      role: v.string(),
+      linkedPatientId: v.union(v.id("patients"), v.null()),
+    }),
     v.null()
   ),
   handler: async (ctx, args) => {
@@ -58,6 +71,7 @@ export const getMe = query({
       email: user.email,
       name: user.name,
       role: user.role,
+      linkedPatientId: user.linkedPatientId ?? null,
     };
   },
 });
@@ -85,6 +99,29 @@ export const seedAdmin = mutation({
     return "Admin created: admin@celljevity.com / admin123";
   },
 });
+
+// Helper: require patient is accessing own data, or caller has a staff role
+export async function requirePatientSelfOrRole(
+  ctx: { db: any },
+  callerId: string,
+  patientId: string,
+  staffRoles: string[]
+) {
+  const caller = await ctx.db.get(callerId as any);
+  if (!caller) {
+    throw new Error("Unauthorized: user not found");
+  }
+  if (caller.role === "patient") {
+    if (!caller.linkedPatientId || caller.linkedPatientId !== patientId) {
+      throw new Error("Forbidden: patients can only access their own data");
+    }
+    return caller;
+  }
+  if (!staffRoles.includes(caller.role)) {
+    throw new Error(`Forbidden: requires one of [${staffRoles.join(", ")}]`);
+  }
+  return caller;
+}
 
 // Helper: require user has one of the allowed roles
 export async function requireRole(
