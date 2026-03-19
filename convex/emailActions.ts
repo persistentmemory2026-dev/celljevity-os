@@ -2,10 +2,74 @@
 
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internal, api } from "./_generated/api";
 import { createInbox, sendEmail, getAttachment, registerWebhook } from "./agentmail";
-import { welcomeEmail, quoteEmail, inviteEmail } from "./emailTemplates";
+import { welcomeEmail, quoteEmail, inviteEmail, treatmentConfirmationEmail, treatmentReminderEmail, treatmentCompletedEmail, followUpEmail, quoteAcceptedEmail } from "./emailTemplates";
 import { Id } from "./_generated/dataModel";
+
+async function resolveInbox(patient: { agentmailInboxId?: string; agentmailAddress?: string }, fallbackName: string) {
+  if (patient.agentmailInboxId) {
+    return { inboxId: patient.agentmailInboxId, fromAddress: patient.agentmailAddress ?? `${fallbackName}@agentmail.to` };
+  }
+  try {
+    const inbox = await createInbox(fallbackName, "Celljevity");
+    return { inboxId: inbox.inboxId, fromAddress: `${fallbackName}@agentmail.to` };
+  } catch {
+    return { inboxId: fallbackName, fromAddress: `${fallbackName}@agentmail.to` };
+  }
+}
+
+async function sendAndLog(
+  ctx: any,
+  opts: {
+    patientId?: any;
+    quoteId?: any;
+    inboxId: string;
+    fromAddress: string;
+    toEmail: string;
+    template: { subject: string; html: string; text: string };
+  }
+) {
+  try {
+    const result = await sendEmail(opts.inboxId, {
+      to: [opts.toEmail],
+      subject: opts.template.subject,
+      html: opts.template.html,
+      text: opts.template.text,
+    });
+    await ctx.runMutation(internal.emailLog.insert, {
+      direction: "outbound",
+      agentmailMessageId: result.messageId ?? "",
+      agentmailThreadId: result.threadId,
+      inboxId: opts.inboxId,
+      patientId: opts.patientId,
+      quoteId: opts.quoteId,
+      from: opts.fromAddress,
+      to: opts.toEmail,
+      subject: opts.template.subject,
+      bodyPreview: opts.template.text.slice(0, 200),
+      hasAttachments: false,
+      status: "sent",
+      createdAt: Date.now(),
+    });
+  } catch (error: any) {
+    console.error(`Failed to send email "${opts.template.subject}":`, error);
+    await ctx.runMutation(internal.emailLog.insert, {
+      direction: "outbound",
+      agentmailMessageId: "",
+      inboxId: opts.inboxId ?? "",
+      patientId: opts.patientId,
+      quoteId: opts.quoteId,
+      from: opts.fromAddress,
+      to: opts.toEmail,
+      subject: opts.template.subject,
+      hasAttachments: false,
+      status: "failed",
+      error: error?.message ?? String(error),
+      createdAt: Date.now(),
+    });
+  }
+}
 
 // ─── Flow 1: Patient Welcome + Inbox Creation ──────────────────────
 
@@ -360,5 +424,200 @@ export const setupWebhook = action({
     const result = await registerWebhook(url, ["message.received"]);
     // Serialize for Convex (strip Date objects)
     return JSON.parse(JSON.stringify(result));
+  },
+});
+
+// ─── Flow 5: Treatment Confirmation Email ────────────────────────
+
+export const sendTreatmentConfirmation = internalAction({
+  args: {
+    patientId: v.id("patients"),
+    treatmentId: v.id("treatments"),
+  },
+  handler: async (ctx, args) => {
+    const patient = await ctx.runQuery(internal.patients.getInternal, {
+      patientId: args.patientId,
+    });
+    if (!patient || !patient.email) return;
+
+    const treatment = await ctx.runQuery(internal.treatments.getInternal, {
+      treatmentId: args.treatmentId,
+    });
+    if (!treatment) return;
+
+    const { inboxId, fromAddress } = await resolveInbox(patient, "celljevity-treatments");
+
+    const template = treatmentConfirmationEmail({
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      serviceName: treatment.serviceName,
+      scheduledDate: treatment.scheduledDate ?? "",
+    }, patient.language ?? "en");
+
+    await sendAndLog(ctx, {
+      patientId: args.patientId,
+      inboxId,
+      fromAddress,
+      toEmail: patient.email,
+      template,
+    });
+  },
+});
+
+// ─── Flow 6: Treatment Reminder Email ────────────────────────────
+
+export const sendTreatmentReminder = internalAction({
+  args: {
+    patientId: v.id("patients"),
+    treatmentId: v.id("treatments"),
+    expectedDate: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const treatment = await ctx.runQuery(internal.treatments.getInternal, {
+      treatmentId: args.treatmentId,
+    });
+    // Guard: only send if treatment still exists, date unchanged, and still scheduled
+    if (!treatment || treatment.scheduledDate !== args.expectedDate || treatment.status !== "scheduled") return;
+
+    const patient = await ctx.runQuery(internal.patients.getInternal, {
+      patientId: args.patientId,
+    });
+    if (!patient || !patient.email) return;
+
+    const { inboxId, fromAddress } = await resolveInbox(patient, "celljevity-treatments");
+
+    const template = treatmentReminderEmail({
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      serviceName: treatment.serviceName,
+      scheduledDate: treatment.scheduledDate ?? "",
+    }, patient.language ?? "en");
+
+    await sendAndLog(ctx, {
+      patientId: args.patientId,
+      inboxId,
+      fromAddress,
+      toEmail: patient.email,
+      template,
+    });
+  },
+});
+
+// ─── Flow 7: Treatment Completed Email ───────────────────────────
+
+export const sendTreatmentCompleted = internalAction({
+  args: {
+    patientId: v.id("patients"),
+    treatmentId: v.id("treatments"),
+  },
+  handler: async (ctx, args) => {
+    const patient = await ctx.runQuery(internal.patients.getInternal, {
+      patientId: args.patientId,
+    });
+    if (!patient || !patient.email) return;
+
+    const treatment = await ctx.runQuery(internal.treatments.getInternal, {
+      treatmentId: args.treatmentId,
+    });
+    if (!treatment) return;
+
+    const { inboxId, fromAddress } = await resolveInbox(patient, "celljevity-treatments");
+
+    const template = treatmentCompletedEmail({
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      serviceName: treatment.serviceName,
+      completedDate: treatment.completedDate ?? new Date().toISOString().split("T")[0],
+      notes: treatment.notes,
+    }, patient.language ?? "en");
+
+    await sendAndLog(ctx, {
+      patientId: args.patientId,
+      inboxId,
+      fromAddress,
+      toEmail: patient.email,
+      template,
+    });
+
+    // Schedule follow-up email in 7 days
+    await ctx.scheduler.runAfter(7 * 24 * 60 * 60 * 1000, internal.emailActions.sendFollowUpEmail, {
+      patientId: args.patientId,
+      treatmentId: args.treatmentId,
+    });
+  },
+});
+
+// ─── Flow 8: Follow-Up Email (7 days after completion) ───────────
+
+export const sendFollowUpEmail = internalAction({
+  args: {
+    patientId: v.id("patients"),
+    treatmentId: v.id("treatments"),
+  },
+  handler: async (ctx, args) => {
+    const treatment = await ctx.runQuery(internal.treatments.getInternal, {
+      treatmentId: args.treatmentId,
+    });
+    // Guard: only send if treatment still exists and is completed
+    if (!treatment || treatment.status !== "completed") return;
+
+    const patient = await ctx.runQuery(internal.patients.getInternal, {
+      patientId: args.patientId,
+    });
+    if (!patient || !patient.email) return;
+
+    const { inboxId, fromAddress } = await resolveInbox(patient, "celljevity-treatments");
+
+    const template = followUpEmail({
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      serviceName: treatment.serviceName,
+    }, patient.language ?? "en");
+
+    await sendAndLog(ctx, {
+      patientId: args.patientId,
+      inboxId,
+      fromAddress,
+      toEmail: patient.email,
+      template,
+    });
+  },
+});
+
+// ─── Flow 9: Quote Accepted Email ────────────────────────────────
+
+export const sendQuoteAccepted = internalAction({
+  args: {
+    quoteId: v.id("quotes"),
+  },
+  handler: async (ctx, args) => {
+    const quote = await ctx.runQuery(internal.quotes.getInternal, {
+      quoteId: args.quoteId,
+    });
+    if (!quote || !quote.customerEmail) return;
+
+    // Try to find patient for inbox resolution
+    const patient = await ctx.runQuery(internal.patients.getByEmail, {
+      email: quote.customerEmail,
+    });
+
+    const { inboxId, fromAddress } = patient
+      ? await resolveInbox(patient, "celljevity-quotes")
+      : { inboxId: "celljevity-quotes", fromAddress: "celljevity-quotes@agentmail.to" };
+
+    const template = quoteAcceptedEmail({
+      customerName: quote.customerName,
+      quoteNumber: quote.quoteNumber,
+      total: quote.total,
+    }, patient?.language ?? "en");
+
+    await sendAndLog(ctx, {
+      quoteId: args.quoteId,
+      patientId: patient?._id,
+      inboxId,
+      fromAddress,
+      toEmail: quote.customerEmail,
+      template,
+    });
   },
 });

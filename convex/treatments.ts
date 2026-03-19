@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireRole, requirePatientSelfOrRole } from "./auth";
 
 export const listByPatient = query({
@@ -49,7 +50,7 @@ export const create = mutation({
     if (!service) throw new Error("Service not found");
 
     const now = Date.now();
-    return await ctx.db.insert("treatments", {
+    const treatmentId = await ctx.db.insert("treatments", {
       patientId: args.patientId,
       serviceId: args.serviceId,
       serviceName: service.name,
@@ -61,6 +62,27 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Schedule confirmation email
+    if (args.scheduledDate) {
+      await ctx.scheduler.runAfter(0, internal.emailActions.sendTreatmentConfirmation, {
+        patientId: args.patientId,
+        treatmentId,
+      });
+      // Schedule day-before reminder
+      const scheduledMs = new Date(args.scheduledDate).getTime();
+      const reminderMs = scheduledMs - 24 * 60 * 60 * 1000;
+      const delayMs = Math.max(0, reminderMs - Date.now());
+      if (delayMs > 0) {
+        await ctx.scheduler.runAfter(delayMs, internal.emailActions.sendTreatmentReminder, {
+          patientId: args.patientId,
+          treatmentId,
+          expectedDate: args.scheduledDate,
+        });
+      }
+    }
+
+    return treatmentId;
   },
 });
 
@@ -92,6 +114,15 @@ export const update = mutation({
     }
 
     await ctx.db.patch(treatmentId, updates);
+
+    // Email on completion
+    if (args.status === "completed") {
+      await ctx.scheduler.runAfter(0, internal.emailActions.sendTreatmentCompleted, {
+        patientId: treatment.patientId,
+        treatmentId: args.treatmentId,
+      });
+    }
+
     return null;
   },
 });
@@ -127,5 +158,14 @@ export const remove = mutation({
 
     await ctx.db.delete(args.treatmentId);
     return null;
+  },
+});
+
+// Internal query for email actions — not callable from client
+export const getInternal = internalQuery({
+  args: { treatmentId: v.id("treatments") },
+  returns: v.union(v.any(), v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.treatmentId);
   },
 });
