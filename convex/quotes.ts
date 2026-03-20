@@ -141,6 +141,13 @@ export const updateStatus = mutation({
       });
     }
 
+    // Send confirmation when quote is accepted
+    if (args.status === "accepted") {
+      await ctx.scheduler.runAfter(0, internal.emailActions.sendQuoteAccepted, {
+        quoteId: args.quoteId,
+      });
+    }
+
     return await ctx.db.get(args.quoteId);
   },
 });

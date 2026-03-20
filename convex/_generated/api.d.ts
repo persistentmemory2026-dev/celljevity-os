@@ -12,6 +12,7 @@ import type * as agentmail from "../agentmail.js";
 import type * as auth from "../auth.js";
 import type * as biomarkerDefinitions from "../biomarkerDefinitions.js";
 import type * as biomarkers from "../biomarkers.js";
+import type * as dashboard from "../dashboard.js";
 import type * as documents from "../documents.js";
 import type * as emailActions from "../emailActions.js";
 import type * as emailLog from "../emailLog.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   biomarkerDefinitions: typeof biomarkerDefinitions;
   biomarkers: typeof biomarkers;
+  dashboard: typeof dashboard;
   documents: typeof documents;
   emailActions: typeof emailActions;
   emailLog: typeof emailLog;
