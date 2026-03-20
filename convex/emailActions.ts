@@ -6,6 +6,7 @@ import { internal, api } from "./_generated/api";
 import { createInbox, sendEmail, getAttachment, registerWebhook } from "./agentmail";
 import { welcomeEmail, quoteEmail, inviteEmail, treatmentConfirmationEmail, treatmentReminderEmail, treatmentCompletedEmail, followUpEmail, quoteAcceptedEmail } from "./emailTemplates";
 import { Id } from "./_generated/dataModel";
+import type { ActionCtx } from "./_generated/server";
 
 async function resolveInbox(patient: { agentmailInboxId?: string; agentmailAddress?: string }, fallbackName: string) {
   if (patient.agentmailInboxId) {
@@ -20,10 +21,10 @@ async function resolveInbox(patient: { agentmailInboxId?: string; agentmailAddre
 }
 
 async function sendAndLog(
-  ctx: any,
+  ctx: ActionCtx,
   opts: {
-    patientId?: any;
-    quoteId?: any;
+    patientId?: Id<"patients">;
+    quoteId?: Id<"quotes">;
     inboxId: string;
     fromAddress: string;
     toEmail: string;

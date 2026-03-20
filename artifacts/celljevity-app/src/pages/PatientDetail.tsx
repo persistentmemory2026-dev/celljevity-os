@@ -264,12 +264,12 @@ export function PatientDetail({ userId, patientId, onNavigate }: PatientDetailPr
       <Tabs defaultValue="stammdaten">
         <div className="overflow-x-auto -mx-4 sm:-mx-8 px-4 sm:px-8 mb-6 scrollbar-none">
           <TabsList className="w-max min-h-[44px]">
-            <TabsTrigger value="stammdaten">Stammdaten</TabsTrigger>
-            <TabsTrigger value="treatments">Behandlungen</TabsTrigger>
-            <TabsTrigger value="reports">Berichte</TabsTrigger>
-            <TabsTrigger value="biomarkers">Biomarker</TabsTrigger>
-            <TabsTrigger value="itinerary">Reiseplan</TabsTrigger>
-            <TabsTrigger value="emails">E-Mails</TabsTrigger>
+            <TabsTrigger value="stammdaten">Profile</TabsTrigger>
+            <TabsTrigger value="treatments">Treatments</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="biomarkers">Biomarkers</TabsTrigger>
+            <TabsTrigger value="itinerary">Itinerary</TabsTrigger>
+            <TabsTrigger value="emails">Emails</TabsTrigger>
           </TabsList>
         </div>
 
