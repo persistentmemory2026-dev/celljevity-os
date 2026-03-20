@@ -34,6 +34,10 @@ pnpm run db:seed                          # Seed database
 
 # API codegen (OpenAPI → React Query hooks + Zod schemas)
 pnpm --filter @workspace/api-spec codegen
+
+# Tests (Vitest)
+pnpm test              # Run all tests once
+pnpm test:watch        # Watch mode
 ```
 
 ## Architecture
@@ -47,7 +51,7 @@ pnpm --filter @workspace/api-spec codegen
 - `lib/api-spec` (`@workspace/api-spec`) — OpenAPI 3.1 YAML + Orval config
 - `lib/api-client-react` (`@workspace/api-client-react`) — Generated React Query hooks (from Orval)
 - `lib/api-zod` (`@workspace/api-zod`) — Generated Zod schemas
-- `convex/` — Convex backend (schema for users, services, quotes, quoteItems, documents). Project: `dashing-fennec-674`
+- `convex/` — Convex backend (schema for 13 tables: users, services, quotes, quoteItems, documents, patients, treatments, biomarkerResults, extractionJobs, itineraries, itineraryItems, emailLog, inviteTokens). Project: `dashing-fennec-674`
 
 **Dependency flow:**
 ```
@@ -68,7 +72,7 @@ Requires: Node.js 24, pnpm, PostgreSQL. Key env vars: `DATABASE_URL`, `PORT`, `S
 
 ## Database
 
-13 PostgreSQL tables with UUID PKs (Drizzle ORM). Also a parallel Convex schema in `convex/schema.ts` with 5 tables (users, services, quotes, quoteItems, documents).
+13 PostgreSQL tables with UUID PKs (Drizzle ORM). Also a parallel Convex schema in `convex/schema.ts` with 13 tables (users, services, quotes, quoteItems, documents, patients, treatments, biomarkerResults, extractionJobs, itineraries, itineraryItems, emailLog, inviteTokens).
 
 ## Design System
 

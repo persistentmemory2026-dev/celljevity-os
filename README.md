@@ -16,6 +16,8 @@ A GDPR-compliant healthcare platform for patient management with biomarker track
 | Auth | Session-based (express-session + connect-pg-simple), bcrypt |
 | Build (server) | esbuild (CJS bundle) |
 | Build (client) | Vite |
+| Backend (realtime) | Convex |
+| Testing | Vitest |
 
 ## Prerequisites
 
@@ -68,6 +70,13 @@ pnpm --filter @workspace/celljevity-app dev
 | `pnpm --filter @workspace/db push` | Push Drizzle schema to PostgreSQL |
 | `pnpm --filter @workspace/db push-force` | Force-push schema (destructive, dev only) |
 | `pnpm run db:seed` | Seed the database |
+
+### Testing
+
+| Command | Description |
+|---------|-------------|
+| `pnpm test` | Run all tests once (Vitest) |
+| `pnpm test:watch` | Run tests in watch mode |
 
 ### Codegen
 
@@ -135,6 +144,10 @@ api-server     --> db
 ## TypeScript Composite Projects
 
 Every package uses `composite: true` and the root `tsconfig.json` lists all packages as project references. Always typecheck from the root (`pnpm run typecheck`) so that cross-package `.d.ts` declarations are built in the correct order. Running `tsc` inside a single package may fail if its dependencies have not been built.
+
+## Documentation
+
+- [`docs/email-flows.md`](docs/email-flows.md) — All transactional email triggers, templates, and guard rules
 
 ## Notes
 

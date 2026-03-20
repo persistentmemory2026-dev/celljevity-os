@@ -24,7 +24,7 @@ _(none currently)_
 **Context:** The email system (`emailActions.ts`) currently sends all emails unconditionally. Need: (1) email preferences field on patients table, (2) unsubscribe link in non-transactional emails, (3) preference management in patient profile.
 **Effort:** M (human: 1 week / CC: 30 min)
 **Priority:** P2
-**Depends on:** Transactional email workflows (in progress)
+**Depends on:** Transactional email workflows (completed — 9 flows shipped in PR #2)
 **Blocked by:** Must be done BEFORE implementing re-engagement or marketing emails
 
 ### Observability Foundation

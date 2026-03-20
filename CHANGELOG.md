@@ -8,9 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - Sync Convex codegen types: removed stale module references from app-level generated types, added dashboard module to root codegen, and updated dataModel to schema-less mode for app-level Convex directory (b2ebdc6)
+- Type-safe `sendAndLog` helper — replaced `ctx: any` with `ActionCtx`, typed patient/quote ID parameters (9084c17)
+- Admin seed password now requires `ADMIN_SEED_PASSWORD` env var instead of hardcoded default (2f9cf3b)
+- PatientDetail tab labels translated from German to English (9084c17)
 
 ### Added
 - TODOS.md with prioritized backlog (biomarker alerts, GDPR email unsubscribe, observability, email queue upgrade, action item pagination)
+- `sendAndLog` helper and 9 transactional email flows: welcome, quote sent, patient invite, treatment confirmation/reminder/completed, follow-up, quote accepted, inbound processing (7def485)
+- Email templates with translations in 7 languages (en, de, nl, fr, es, it, pt) in `convex/emailTemplates.ts`
+- Baseline comparison toggle for MyBiomarkers — compare current results against historical baseline (c05d192)
+- Vitest test infrastructure with 29 tests covering auth, biomarker calculations, and baseline logic (ad163f9)
+- Email flow documentation in `docs/email-flows.md` (666d113)
 - Patient detail panel and enhanced intake consent options (e55cb90)
 - Patient dashboard and quote builder functionality (de8b1d8)
 - Complete i18n externalization across all remaining frontend pages (54d8205)
